@@ -3,20 +3,33 @@ use std::{
     net::{SocketAddr, TcpListener, TcpStream},
 };
 
+#[derive(PartialEq)]
+pub enum Method {
+    GET,
+}
+
+impl From<&str> for Method {
+    fn from(s: &str) -> Self {
+        match s {
+            "GET" => Self::GET,
+            _ => Self::GET,
+        }
+    }
+}
+
 pub struct Request {
-    method: String,
+    method: Method,
     route: String,
 }
 pub struct Response {}
 
 pub struct Route {
-    method: String,
+    method: Method,
     route: String,
     f: fn(Request) -> Response,
 }
 
 pub struct Server {
-    local_addr: String,
     listener: TcpListener,
     routes: Vec<Route>,
 }
@@ -25,15 +38,14 @@ impl Server {
     pub fn new(addr: &str) -> Self {
         let listener = TcpListener::bind(addr).expect(&format!("Failed to bind to {addr}"));
         Server {
-            local_addr: addr.into(),
             listener,
             routes: Vec::new(),
         }
     }
 
-    pub fn add_route(&mut self, path: &str, f: fn(Request) -> Response) {
+    pub fn add_route(&mut self, method: Method, path: &str, f: fn(Request) -> Response) {
         self.routes.push(Route {
-            method: "GET".into(),
+            method,
             route: path.to_string(),
             f,
         });
