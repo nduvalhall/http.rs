@@ -1,5 +1,5 @@
 use std::{
-    io::Read,
+    io::{Read, Write},
     net::{SocketAddr, TcpListener, TcpStream},
 };
 
@@ -21,7 +21,12 @@ pub struct Request {
     method: Method,
     route: String,
 }
-pub struct Response {}
+
+pub struct Response {
+    pub message: String,
+}
+
+impl Response {}
 
 pub struct Route {
     method: Method,
@@ -30,25 +35,37 @@ pub struct Route {
 }
 
 pub struct Server {
+    local_addr: String,
     listener: TcpListener,
     routes: Vec<Route>,
 }
 
 impl Server {
-    pub fn new(addr: &str) -> Self {
+    pub fn bind(addr: &str) -> Self {
         let listener = TcpListener::bind(addr).expect(&format!("Failed to bind to {addr}"));
         Server {
+            local_addr: addr.into(),
             listener,
             routes: Vec::new(),
         }
     }
 
-    pub fn add_route(&mut self, method: Method, path: &str, f: fn(Request) -> Response) {
-        self.routes.push(Route {
+    pub fn add_route(self, method: Method, path: &str, f: fn(Request) -> Response) -> Self {
+        let mut routes = self.routes;
+        routes.push(Route {
             method,
             route: path.to_string(),
             f,
         });
+        Self {
+            local_addr: self.local_addr,
+            listener: self.listener,
+            routes: routes,
+        }
+    }
+
+    pub fn get(self, path: &str, f: fn(Request) -> Response) -> Self {
+        self.add_route(Method::GET, path, f)
     }
 
     fn parse_request(request: &str) -> Request {
@@ -82,7 +99,9 @@ impl Server {
                         })
                         .unwrap();
 
-                    let _ = (route.f)(request);
+                    let response = (route.f)(request);
+
+                    stream.write_all(response.message.as_bytes()).unwrap()
                 }
             };
         }
@@ -91,7 +110,7 @@ impl Server {
         println!("---");
     }
 
-    pub fn run(&mut self) {
+    pub fn run(self) {
         let connections = self.listener.incoming();
 
         for connection in connections {
