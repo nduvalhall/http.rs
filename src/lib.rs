@@ -1,80 +1,53 @@
+pub mod request;
+pub mod response;
+
 use std::{
     io::{Read, Write},
     net::{SocketAddr, TcpListener, TcpStream},
+    sync::{Arc, Mutex},
 };
 
-#[derive(PartialEq)]
-pub enum Method {
-    GET,
-}
+use crate::{request::Request, response::Response};
 
-impl From<&str> for Method {
-    fn from(s: &str) -> Self {
-        match s {
-            "GET" => Self::GET,
-            _ => Self::GET,
-        }
-    }
-}
-
-pub struct Request {
-    method: Method,
+pub struct Route<C> {
+    method: String,
     route: String,
+    f: fn(C, Request) -> Response,
 }
 
-pub struct Response {
-    pub message: String,
-}
-
-impl Response {}
-
-pub struct Route {
-    method: Method,
-    route: String,
-    f: fn(Request) -> Response,
-}
-
-pub struct Server {
-    local_addr: String,
+pub struct Server<C> {
+    context: Arc<Mutex<C>>,
     listener: TcpListener,
-    routes: Vec<Route>,
+    routes: Vec<Route<Arc<Mutex<C>>>>,
 }
 
-impl Server {
-    pub fn bind(addr: &str) -> Self {
+impl<C> Server<C> {
+    pub fn bind(addr: &str, context: C) -> Self {
         let listener = TcpListener::bind(addr).expect(&format!("Failed to bind to {addr}"));
         Server {
-            local_addr: addr.into(),
+            context: Arc::new(Mutex::new(context)),
             listener,
             routes: Vec::new(),
         }
     }
 
-    pub fn add_route(self, method: Method, path: &str, f: fn(Request) -> Response) -> Self {
+    pub fn add_route(
+        self,
+        method: &str,
+        path: &str,
+        f: fn(Arc<Mutex<C>>, Request) -> Response,
+    ) -> Self {
         let mut routes = self.routes;
         routes.push(Route {
-            method,
+            method: method.to_string(),
             route: path.to_string(),
             f,
         });
         Self {
-            local_addr: self.local_addr,
+            context: self.context,
             listener: self.listener,
             routes: routes,
         }
-    }
-
-    pub fn get(self, path: &str, f: fn(Request) -> Response) -> Self {
-        self.add_route(Method::GET, path, f)
-    }
-
-    fn parse_request(request: &str) -> Request {
-        let mut lines = request.lines();
-        let mut line1 = lines.next().unwrap().split(" ");
-        let method = line1.next().unwrap().into();
-        let route = line1.next().unwrap().into();
-
-        Request { method, route }
     }
 
     fn handle_connection(&self, address: SocketAddr, mut stream: TcpStream) {
@@ -89,19 +62,19 @@ impl Server {
                     }
 
                     let request_str = str::from_utf8(&buffer[0..bytes_read]).unwrap();
-                    let request = Self::parse_request(request_str);
+                    let request = Request::from_string(request_str.to_string());
 
                     let route = self
                         .routes
                         .iter()
                         .find(|&route| {
-                            route.route == request.route && route.method == request.method
+                            route.route == request.path && route.method == request.method
                         })
                         .unwrap();
 
-                    let response = (route.f)(request);
+                    let response = (route.f)(Arc::clone(&self.context), request);
 
-                    stream.write_all(response.message.as_bytes()).unwrap()
+                    stream.write_all(response.to_string().as_bytes()).unwrap()
                 }
             };
         }

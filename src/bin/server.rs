@@ -1,34 +1,40 @@
-use http::{Request, Response, Server};
+use std::sync::{Arc, Mutex};
 
-fn hello_world(_request: Request) -> Response {
-    println!("Hello world!!!!");
+use http::{Server, request::Request, response::Response};
+
+struct Context {
+    message: String,
+}
+
+fn hello_world(context: Arc<Mutex<Context>>, _request: Request) -> Response {
+    let mut context = context.lock().unwrap();
+    println!("Hello world!!!! {}", context.message);
+    context.message = String::from("hello world 1");
+
     Response {
-        message: "HTTP/1.1 200 OK
-Content-Type: text/plain
-Content-Length: 13
-
-Hello, world!\r\n\r\n"
-            .into(),
+        status_code: http::response::StatusCode::NoContent,
     }
 }
 
-fn hello_world2(_request: Request) -> Response {
+fn hello_world2(context: Arc<Mutex<Context>>, _request: Request) -> Response {
+    let mut context = context.lock().unwrap();
+    println!("Hello world!!!! {}", context.message);
+    context.message = String::from("hello world222222");
     println!("Hello world22222!!!!");
-    Response {
-        message: "HTTP/1.1 200 OK
-Content-Type: text/plain
-Content-Length: 13
 
-Hello, world222!!\r\n\r\n"
-            .into(),
+    Response {
+        status_code: http::response::StatusCode::NoContent,
     }
 }
 
 fn main() {
     let addr = "127.0.0.1:42069";
+    let context = Context {
+        message: String::from("Test"),
+    };
 
-    Server::bind(addr)
-        .get("/hello-world", hello_world)
-        .get("/hello-world2", hello_world2)
+    Server::bind(addr, context)
+        .add_route("GET", "/hello-world", hello_world)
+        .add_route("GET", "/hello-world2", hello_world2)
         .run();
 }
