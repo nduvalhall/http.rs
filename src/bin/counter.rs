@@ -1,6 +1,4 @@
-use http::{
-    request::Request, response::Response, route::Route, server::Server, status_code::StatusCode,
-};
+use http::{Request, Response, Route, Server, StatusCode};
 
 struct Counter(i32);
 
@@ -28,7 +26,7 @@ fn decrement(counter: &mut Counter, _: Request) -> Response {
 fn main() {
     let counter = Counter(0);
 
-    let mut server = Server::new("127.0.0.1:42069", counter);
+    let mut server = Server::new("0.0.0.0:8085", counter);
 
     server.add_route(Route::new("GET", "/", index));
     server.add_route(Route::new("GET", "/count", count));
