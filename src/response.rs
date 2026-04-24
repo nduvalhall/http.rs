@@ -22,12 +22,12 @@ impl Response {
             StatusCode::Ok => {
                 format!(
                     "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n",
-                    self.status_code.to_str(),
+                    self.status_code,
                     self.body.len()
                 )
             }
             StatusCode::NoContent | StatusCode::NotFound => {
-                format!("HTTP/1.1 {}\r\n\r\n", self.status_code.to_str(),)
+                format!("HTTP/1.1 {}\r\n\r\n", self.status_code)
             }
         };
 

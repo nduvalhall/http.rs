@@ -16,7 +16,7 @@ impl<C> Server<C> {
         Self {
             address,
             context,
-            routes: Vec::with_capacity(20),
+            routes: Vec::new(),
         }
     }
 
@@ -44,7 +44,7 @@ impl<C> Server<C> {
             if let Ok(mut stream) = conn {
                 println!("Connection from {}", stream.peer_addr().unwrap());
 
-                let mut buf = [0u8; 1024];
+                let mut buf = [0u8; 4096];
                 let n = stream.read(&mut buf).unwrap();
                 if n == 0 {
                     continue;
@@ -54,7 +54,7 @@ impl<C> Server<C> {
 
                 let response = self.dispatch(request);
                 let response_bytes = response.to_bytes();
-                stream.write(&response_bytes).unwrap();
+                stream.write_all(&response_bytes).unwrap();
                 stream.shutdown(std::net::Shutdown::Both).unwrap();
             }
         }
