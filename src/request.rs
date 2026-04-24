@@ -4,18 +4,14 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn from_string(value: String) -> Self {
-        let mut lines = value.lines();
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let request = std::str::from_utf8(bytes).ok()?;
+        let mut parts = request.split_whitespace();
+        let method = parts.next()?.to_string();
+        let path = parts.next()?.to_string();
 
-        let line = lines.next().unwrap();
-        let mut words = line.split(" ");
+        println!("{} {}", method, path);
 
-        let method = words.next().unwrap();
-        let path = words.next().unwrap();
-
-        Request {
-            method: method.to_string(),
-            path: path.to_string(),
-        }
+        Some(Request { method, path })
     }
 }
