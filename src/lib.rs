@@ -4,7 +4,7 @@ mod route;
 mod server;
 mod status_code;
 
-pub use crate::request::Request;
+pub use crate::request::{FromRequest, Request};
 pub use crate::response::Response;
 pub use crate::route::Route;
 pub use crate::server::Server;

@@ -6,7 +6,7 @@ fn index(_: &mut Counter, _: Request) -> Response {
     Response::with_body(StatusCode::Ok, Vec::from(include_str!("counter.html")))
 }
 
-fn count(counter: &mut Counter, _: Request) -> Response {
+fn get_count(counter: &mut Counter, _: Request) -> Response {
     let response = format!(r#"{{"count": {}}}"#, counter.0);
     Response::with_body(StatusCode::Ok, Vec::from(response.as_bytes()))
 }
@@ -26,10 +26,10 @@ fn decrement(counter: &mut Counter, _: Request) -> Response {
 fn main() {
     let counter = Counter(0);
 
-    let mut server = Server::new("0.0.0.0:8085", counter);
+    let mut server = Server::new("0.0.0.0:42069", counter);
 
     server.add_route(Route::new("GET", "/", index));
-    server.add_route(Route::new("GET", "/count", count));
+    server.add_route(Route::new("GET", "/count", get_count));
     server.add_route(Route::new("POST", "/increment", increment));
     server.add_route(Route::new("POST", "/decrement", decrement));
 

@@ -5,13 +5,13 @@ use std::{
 
 use crate::{request::Request, response::Response, route::Route, status_code::StatusCode};
 
-pub struct Server<C> {
+pub struct Server<C: 'static> {
     address: &'static str,
     context: C,
     routes: Vec<Route<C>>,
 }
 
-impl<C> Server<C> {
+impl<C: 'static> Server<C> {
     pub fn new(address: &'static str, context: C) -> Self {
         Self {
             address,

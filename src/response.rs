@@ -36,3 +36,19 @@ impl Response {
         bytes
     }
 }
+
+pub trait ToResponse {
+    fn to_response(self) -> Response;
+}
+
+impl ToResponse for Response {
+    fn to_response(self) -> Response {
+        self
+    }
+}
+
+impl ToResponse for () {
+    fn to_response(self) -> Response {
+        Response::new(StatusCode::NoContent)
+    }
+}
