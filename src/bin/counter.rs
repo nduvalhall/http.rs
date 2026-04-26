@@ -1,30 +1,30 @@
-use http::{Request, Response, Route, Server, StatusCode};
+use http::{Response, Route, Server, StatusCode};
 
-struct Counter(i32);
+struct Context {
+    counter: i32,
+}
 
-fn index(_: &mut Counter, _: Request) -> Response {
+fn index(_: &mut Context, _: ()) -> Response {
     Response::with_body(StatusCode::Ok, Vec::from(include_str!("counter.html")))
 }
 
-fn get_count(counter: &mut Counter, _: Request) -> Response {
-    let response = format!(r#"{{"count": {}}}"#, counter.0);
+fn get_count(context: &mut Context, _: ()) -> Response {
+    let response = format!(r#"{{"count": {}}}"#, context.counter);
     Response::with_body(StatusCode::Ok, Vec::from(response.as_bytes()))
 }
 
-fn increment(counter: &mut Counter, _: Request) -> Response {
-    counter.0 += 1;
-    println!("Counter: {}", counter.0);
-    Response::new(StatusCode::NoContent)
+fn increment(context: &mut Context, _: ()) {
+    context.counter += 1;
+    println!("Counter: {}", context.counter);
 }
 
-fn decrement(counter: &mut Counter, _: Request) -> Response {
-    counter.0 -= 1;
-    println!("Counter: {}", counter.0);
-    Response::new(StatusCode::NoContent)
+fn decrement(context: &mut Context, _: ()) {
+    context.counter -= 1;
+    println!("Counter: {}", context.counter);
 }
 
 fn main() {
-    let counter = Counter(0);
+    let counter = Context { counter: 0 };
 
     let mut server = Server::new("0.0.0.0:42069", counter);
 
