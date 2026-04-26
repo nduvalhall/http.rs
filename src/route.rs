@@ -11,16 +11,25 @@ pub struct Route<C> {
 }
 
 impl<C: 'static> Route<C> {
-    fn wrap<Req: FromRequest + 'static, Res: ToResponse + 'static>(
-        handler: fn(&mut C, Req) -> Res,
+    pub fn wrap<
+        Req: FromRequest + 'static,
+        Res: ToResponse + 'static,
+        Err: ToResponse + 'static,
+    >(
+        f: fn(&mut C, Req) -> Result<Res, Err>,
     ) -> Box<dyn Fn(&mut C, Request) -> Response> {
-        Box::new(move |context, request| handler(context, Req::from_request(request)).to_response())
+        Box::new(
+            move |context, request| match f(context, Req::from_request(request)) {
+                Ok(res) => res.to_response(),
+                Err(error) => error.to_response(),
+            },
+        )
     }
 
-    pub fn new<Req: FromRequest + 'static, Res: ToResponse + 'static>(
+    pub fn new<Req: FromRequest + 'static, Res: ToResponse + 'static, Err: ToResponse + 'static>(
         method: &'static str,
         path: &'static str,
-        handler: fn(&mut C, Req) -> Res,
+        handler: fn(&mut C, Req) -> Result<Res, Err>,
     ) -> Self {
         Route {
             method,

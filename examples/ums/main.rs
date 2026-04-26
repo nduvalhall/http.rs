@@ -2,6 +2,7 @@ use http::{Route, Server};
 
 mod context;
 mod database;
+mod error;
 mod service;
 mod user;
 
@@ -14,6 +15,7 @@ fn main() {
 
     server.add_route(Route::new("GET", "/users", service::print_users));
     server.add_route(Route::new("POST", "/users", service::create_user));
+    server.add_route(Route::new("POST", "/raise-error", service::raise_error));
 
     server.run();
 }
