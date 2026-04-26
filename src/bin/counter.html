@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Counter</title>
+    </head>
+    <body>
+        <p id="counter"></p>
+        <button id="increment">Increment</button>
+        <button id="decrement">Decrement</button>
+    </body>
+    <script>
+        const BASE_URL = "http://localhost:42069";
+        const counter = document.getElementById("counter");
+        const increment = document.getElementById("increment");
+        const decrement = document.getElementById("decrement");
+
+        async function getCount() {
+            const res = await fetch(BASE_URL + "/count");
+            const count = (await res.json()).count;
+            counter.innerText = count;
+        }
+
+        async function incrementCount() {
+            await fetch(BASE_URL + "/increment", { method: "POST" });
+            await getCount();
+        }
+
+        async function decrementCount() {
+            await fetch(BASE_URL + "/decrement", { method: "POST" });
+            await getCount();
+        }
+
+        increment.addEventListener("click", incrementCount);
+        decrement.addEventListener("click", decrementCount);
+        getCount();
+    </script>
+</html>
