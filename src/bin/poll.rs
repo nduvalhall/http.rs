@@ -1,4 +1,4 @@
-use http::{Request, Response, Route, Server, StatusCode};
+use http::{Response, Route, Server, StatusCode};
 
 struct Poll {
     yes: u32,
@@ -6,11 +6,11 @@ struct Poll {
     maybe: u32,
 }
 
-fn index(_: &mut Poll, _: Request) -> Response {
+fn index(_: &mut Poll, _: ()) -> Response {
     Response::with_body(StatusCode::Ok, Vec::from(include_str!("poll.html")))
 }
 
-fn get_votes(poll: &mut Poll, _: Request) -> Response {
+fn get_votes(poll: &mut Poll, _: ()) -> Response {
     let body = format!(
         r#"{{"yes":{},"no":{},"maybe":{}}}"#,
         poll.yes, poll.no, poll.maybe
@@ -18,22 +18,19 @@ fn get_votes(poll: &mut Poll, _: Request) -> Response {
     Response::with_body(StatusCode::Ok, Vec::from(body.as_bytes()))
 }
 
-fn vote_yes(poll: &mut Poll, _: Request) -> Response {
+fn vote_yes(poll: &mut Poll, _: ()) {
     poll.yes += 1;
     println!("yes: {}", poll.yes);
-    Response::new(StatusCode::NoContent)
 }
 
-fn vote_no(poll: &mut Poll, _: Request) -> Response {
+fn vote_no(poll: &mut Poll, _: ()) {
     poll.no += 1;
     println!("no: {}", poll.no);
-    Response::new(StatusCode::NoContent)
 }
 
-fn vote_maybe(poll: &mut Poll, _: Request) -> Response {
+fn vote_maybe(poll: &mut Poll, _: ()) {
     poll.maybe += 1;
     println!("maybe: {}", poll.maybe);
-    Response::new(StatusCode::NoContent)
 }
 
 fn main() {

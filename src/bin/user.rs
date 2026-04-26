@@ -33,7 +33,7 @@ fn create_user(context: &mut Context, user: User) {
     context.users.push(user);
 }
 
-fn print_users(context: &mut Context, _: Request) {
+fn print_users(context: &mut Context, _: ()) {
     println!("Users: {:?}", context.users);
 }
 
