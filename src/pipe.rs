@@ -1,5 +1,17 @@
 use std::collections::HashMap;
 
+/// A simple pipe-delimited key-value protocol.
+///
+/// # Format
+/// ```text
+/// key=value|key=value|...
+/// ```
+///
+/// # Rules
+/// - All values are strings; type casting is the caller's responsibility
+/// - Whitespace is ignored
+/// - `|` is reserved and must not appear in keys or values
+/// - `=` is reserved and must not appear in keys or values
 pub struct Pipe {
     values: HashMap<String, String>,
 }
