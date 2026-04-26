@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
-use http::{FromRequest, Pipe, Request, Route, Server};
+use http::{FromRequest, Pipe, Request};
 
-struct User {
+pub struct User {
     name: String,
     age: u8,
 }
@@ -23,26 +23,4 @@ impl Debug for User {
         let s = format!("User(name: {}, age: {})", self.name, self.age);
         f.write_str(&s)
     }
-}
-
-struct Context {
-    users: Vec<User>,
-}
-
-fn create_user(context: &mut Context, user: User) {
-    context.users.push(user);
-}
-
-fn print_users(context: &mut Context, _: ()) {
-    println!("Users: {:?}", context.users);
-}
-
-fn main() {
-    let context = Context { users: Vec::new() };
-    let mut server = Server::new("localhost:8087", context);
-
-    server.add_route(Route::new("GET", "/users", print_users));
-    server.add_route(Route::new("POST", "/users", create_user));
-
-    server.run();
 }
