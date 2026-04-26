@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::status_code::StatusCode;
 
 pub struct Response {
@@ -19,7 +21,7 @@ impl Response {
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let header = match self.status_code {
-            StatusCode::Ok => {
+            StatusCode::Ok | StatusCode::InternalServerError => {
                 format!(
                     "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n",
                     self.status_code,
@@ -50,5 +52,17 @@ impl ToResponse for Response {
 impl ToResponse for () {
     fn to_response(self) -> Response {
         Response::new(StatusCode::NoContent)
+    }
+}
+
+impl<T: ToResponse, E: Display> ToResponse for Result<T, E> {
+    fn to_response(self) -> Response {
+        match self {
+            Ok(t) => t.to_response(),
+            Err(e) => Response::with_body(
+                StatusCode::InternalServerError,
+                e.to_string().as_bytes().to_vec(),
+            ),
+        }
     }
 }

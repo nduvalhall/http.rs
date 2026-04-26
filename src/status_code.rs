@@ -4,6 +4,7 @@ pub enum StatusCode {
     Ok,
     NoContent,
     NotFound,
+    InternalServerError,
 }
 
 impl fmt::Display for StatusCode {
@@ -12,6 +13,7 @@ impl fmt::Display for StatusCode {
             Self::Ok => "200 OK",
             Self::NoContent => "204 No Content",
             Self::NotFound => "404 Not Found",
+            Self::InternalServerError => "500 Internal Server Error",
         };
         f.write_str(s)
     }

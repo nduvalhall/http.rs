@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use http::{FromRequest, Request, Route, Server};
+use http::{FromRequest, Pipe, Request, Route, Server};
 
 struct User {
     name: String,
@@ -10,10 +10,10 @@ struct User {
 impl FromRequest for User {
     /// Request body is in format name|age
     fn from_request(request: Request) -> Self {
-        let (name, age) = request.body.split_once('|').unwrap();
+        let pipe = Pipe::from_string(&request.body);
         User {
-            name: name.trim().to_string(),
-            age: u8::from_str_radix(age.trim(), 10).unwrap(),
+            name: pipe.get(0).unwrap().trim().to_string(),
+            age: u8::from_str_radix(pipe.get(1).unwrap().trim(), 10).unwrap(),
         }
     }
 }
