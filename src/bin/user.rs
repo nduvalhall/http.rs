@@ -12,8 +12,8 @@ impl FromRequest for User {
     fn from_request(request: Request) -> Self {
         let pipe = Pipe::from_string(&request.body);
         User {
-            name: pipe.get(0).unwrap().trim().to_string(),
-            age: u8::from_str_radix(pipe.get(1).unwrap().trim(), 10).unwrap(),
+            name: pipe.get("name").unwrap().trim().to_string(),
+            age: u8::from_str_radix(pipe.get("age").unwrap().trim(), 10).unwrap(),
         }
     }
 }

@@ -1,14 +1,23 @@
+use std::collections::HashMap;
+
 pub struct Pipe {
-    values: Vec<String>,
+    values: HashMap<String, String>,
 }
 
 impl Pipe {
-    pub fn new(values: Vec<String>) -> Self {
+    pub fn new(values: HashMap<String, String>) -> Self {
         Pipe { values }
     }
 
     pub fn from_str(str: &str) -> Self {
-        Self::new(str.split('|').map(|s| s.to_string()).collect())
+        let pairs = str.split('|');
+
+        let mut values = HashMap::new();
+        for pair in pairs {
+            let (key, value) = pair.split_once('=').unwrap();
+            values.insert(key.to_string(), value.to_string());
+        }
+        Self::new(values)
     }
 
     pub fn from_string(string: &String) -> Self {
@@ -20,14 +29,18 @@ impl Pipe {
     }
 
     pub fn to_string(&self) -> String {
-        self.values.join("|")
+        let mut pairs = Vec::new();
+        for (key, value) in self.values.iter() {
+            pairs.push(format!("{}={}", key, value));
+        }
+        pairs.join("|")
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_string().as_bytes().to_vec()
     }
 
-    pub fn get(&self, index: usize) -> Option<&String> {
-        self.values.get(index)
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.values.get(key)
     }
 }
