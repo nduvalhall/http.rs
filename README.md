@@ -107,7 +107,7 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 - [ ] Dynamic path segments — `/users/:id` extractable in `FromRequest`
 - [ ] Query string access — `?foo=bar` extractable in `FromRequest`
 - [x] Automatic 404 response when no route matches (currently silently drops)
-- [ ] Automatic 405 response when path matches but method does not
+- [x] Automatic 405 response when path matches but method does not
 
 ### Request
 
@@ -115,7 +115,7 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 - [x] Raw body as `String`
 - [x] `FromRequest` impl for `Request` (pass-through), `()` (no body needed)
 - [x] Expose request headers as a parsed map (at minimum `Content-Type`, `Content-Length`, `Authorization`)
-- [ ] Honor `Content-Length` header to read the correct number of body bytes (current 4 KB buffer silently truncates larger bodies)
+- [x] Honor `Content-Length` header to read the correct number of body bytes (current 4 KB buffer silently truncates larger bodies)
 - [ ] `FromRequest` impl for `String` (raw body string without wrapping in Request)
 
 ### Response

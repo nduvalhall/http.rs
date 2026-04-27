@@ -5,6 +5,7 @@ pub enum Response {
     NoContent,
     Unauthorized,
     NotFound,
+    MethodNotAllowed,
     InternalServerError(String),
 }
 
@@ -15,6 +16,7 @@ impl fmt::Display for Response {
             Self::NoContent => "204 No Content",
             Self::Unauthorized => "401 Unauthorized",
             Self::NotFound => "404 Not Found",
+            Self::MethodNotAllowed => "405 Method Not Allowed",
             Self::InternalServerError(_) => "500 Internal Server Error",
         };
         f.write_str(s)
@@ -33,7 +35,7 @@ impl Response {
                     body
                 ).into_bytes()
             }
-            Self::NoContent | Self::Unauthorized | Self::NotFound => {
+            Self::NoContent | Self::Unauthorized | Self::NotFound | Self::MethodNotAllowed => {
                 format!("HTTP/1.1 {}\r\n\r\n", self).into_bytes()
             }
         }

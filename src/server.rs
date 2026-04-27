@@ -41,19 +41,27 @@ impl<C: 'static> Server<C> {
             }
         }
 
-        if let Some(route) = self
+        let path_routes: Vec<&Route<C>> = self
             .routes
             .iter()
-            .find(|&r| *r.get_method() == request.method && r.get_path() == request.path)
+            .filter(|r| r.get_path() == request.path)
+            .collect();
+
+        if path_routes.is_empty() {
+            return Response::NotFound;
+        }
+
+        match path_routes
+            .iter()
+            .find(|&r| *r.get_method() == request.method)
         {
-            (route.get_handler())(&mut self.context, request)
-        } else {
-            Response::NotFound
+            Some(route) => (route.get_handler())(&mut self.context, request),
+            None => Response::MethodNotAllowed,
         }
     }
 
-    fn send_response(stream: &mut impl Write, response: Response) {
-        let _ = stream.write_all(&response.to_bytes());
+    fn send_error_response(stream: &mut impl Write) {
+        let _ = stream.write_all(&Response::InternalServerError(String::new()).to_bytes());
     }
 
     pub fn run(mut self) {
@@ -80,7 +88,7 @@ impl<C: 'static> Server<C> {
                 Ok(n) => n,
                 Err(e) => {
                     eprintln!("Failed to read from stream: {}", e);
-                    Self::send_response(&mut stream, Response::InternalServerError(String::new()));
+                    Self::send_error_response(&mut stream);
                     continue;
                 }
             };
@@ -93,7 +101,7 @@ impl<C: 'static> Server<C> {
                 Some(r) => r,
                 None => {
                     eprintln!("Failed to parse request");
-                    Self::send_response(&mut stream, Response::InternalServerError(String::new()));
+                    Self::send_error_response(&mut stream);
                     continue;
                 }
             };
