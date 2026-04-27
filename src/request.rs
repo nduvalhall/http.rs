@@ -1,5 +1,7 @@
+use crate::{IntoResponse, Method};
+
 pub struct Request {
-    pub method: String,
+    pub method: Method,
     pub path: String,
     pub body: String,
 }
@@ -22,22 +24,29 @@ impl Request {
 
         let body = lines.collect::<Vec<_>>().join("\n");
 
-        Some(Request { method, path, body })
+        Some(Request {
+            method: Method::from_str(&method),
+            path,
+            body,
+        })
     }
 }
 
-pub trait FromRequest {
-    fn from_request(request: Request) -> Self;
+pub trait FromRequest: Sized {
+    type Error: IntoResponse;
+    fn from_request(request: Request) -> Result<Self, Self::Error>;
 }
 
 impl FromRequest for Request {
-    fn from_request(request: Request) -> Self {
-        request
+    type Error = ();
+    fn from_request(request: Request) -> Result<Self, Self::Error> {
+        Ok(request)
     }
 }
 
 impl FromRequest for () {
-    fn from_request(_: Request) -> Self {
-        ()
+    type Error = ();
+    fn from_request(_: Request) -> Result<Self, Self::Error> {
+        Ok(())
     }
 }

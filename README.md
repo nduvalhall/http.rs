@@ -100,6 +100,15 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 - [ ] Return a typed `ParseError` from `Pipe::parse` instead of silently producing a partial map
 - [ ] `Pipe::build` — construct a pipe-encoded string from a map (for writing responses)
 
+### Serialization — JSON
+
+- [ ] Naive JSON parser — recursive-descent over a `&str` with no external dependencies, producing a `JsonValue` enum (`Null`, `Bool(bool)`, `Number(f64)`, `Str(String)`, `Array(Vec<JsonValue>)`, `Object(HashMap<String, JsonValue>)`)
+- [ ] `JsonValue::get(key)` to index into objects by key
+- [ ] `JsonValue::index(n)` to index into arrays by position
+- [ ] Return a typed `ParseError` from the parser (unexpected token, unterminated string, trailing input, etc.)
+- [ ] `JsonValue::to_string()` — serialize a `JsonValue` back to a compact JSON string
+- [ ] `FromRequest` impl that deserializes the request body as JSON into a `JsonValue`
+
 ### Middleware
 
 - [ ] Define a `Middleware` trait (or function signature) that receives a `Request` and returns a `Request` — allowing mutation, enrichment, or early rejection before the handler runs

@@ -2,19 +2,21 @@ use std::fmt::Debug;
 
 use http::{FromRequest, Pipe, Request};
 
+use crate::error::UMSError;
+
 pub struct User {
     name: String,
     age: u8,
 }
 
 impl FromRequest for User {
-    /// Request body is in format name|age
-    fn from_request(request: Request) -> Self {
+    type Error = ();
+    fn from_request(request: Request) -> Result<Self, Self::Error> {
         let pipe = Pipe::from_string(&request.body);
-        User {
+        Ok(User {
             name: pipe.get("name").unwrap().trim().to_owned(),
             age: u8::from_str_radix(pipe.get("age").unwrap().trim(), 10).unwrap(),
-        }
+        })
     }
 }
 
@@ -30,10 +32,11 @@ pub struct RaiseError {
 }
 
 impl FromRequest for RaiseError {
-    fn from_request(request: Request) -> Self {
+    type Error = UMSError;
+    fn from_request(request: Request) -> Result<Self, Self::Error> {
         let pipe = Pipe::from_string(&request.body);
-        RaiseError {
-            error: pipe.get("error").unwrap().to_owned(),
-        }
+        Err(UMSError::UnknownError(
+            pipe.get("error").unwrap().to_owned(),
+        ))
     }
 }

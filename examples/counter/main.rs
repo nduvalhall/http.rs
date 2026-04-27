@@ -4,23 +4,31 @@ struct Context {
     counter: i32,
 }
 
-fn index(_: &mut Context, _: ()) -> Response {
-    Response::with_body(StatusCode::Ok, Vec::from(include_str!("counter.html")))
+fn index(_: &mut Context, _: ()) -> Result<Response, ()> {
+    Ok(Response::with_body(
+        StatusCode::Ok,
+        Vec::from(include_str!("counter.html")),
+    ))
 }
 
-fn get_count(context: &mut Context, _: ()) -> Response {
+fn get_count(context: &mut Context, _: ()) -> Result<Response, ()> {
     let response = format!(r#"{{"count": {}}}"#, context.counter);
-    Response::with_body(StatusCode::Ok, Vec::from(response.as_bytes()))
+    Ok(Response::with_body(
+        StatusCode::Ok,
+        Vec::from(response.as_bytes()),
+    ))
 }
 
-fn increment(context: &mut Context, _: ()) {
+fn increment(context: &mut Context, _: ()) -> Result<(), ()> {
     context.counter += 1;
     println!("Counter: {}", context.counter);
+    Ok(())
 }
 
-fn decrement(context: &mut Context, _: ()) {
+fn decrement(context: &mut Context, _: ()) -> Result<(), ()> {
     context.counter -= 1;
     println!("Counter: {}", context.counter);
+    Ok(())
 }
 
 fn main() {
@@ -28,10 +36,10 @@ fn main() {
 
     let mut server = Server::new("0.0.0.0:42069", counter);
 
-    server.add_route(Route::new("GET", "/", index));
-    server.add_route(Route::new("GET", "/count", get_count));
-    server.add_route(Route::new("POST", "/increment", increment));
-    server.add_route(Route::new("POST", "/decrement", decrement));
+    server.add_route(Route::get("/", index));
+    server.add_route(Route::get("/count", get_count));
+    server.add_route(Route::post("/increment", increment));
+    server.add_route(Route::post("/decrement", decrement));
 
     server.run();
 }

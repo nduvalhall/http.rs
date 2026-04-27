@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::status_code::StatusCode;
 
 pub struct Response {
@@ -39,30 +37,18 @@ impl Response {
     }
 }
 
-pub trait ToResponse {
+pub trait IntoResponse {
     fn to_response(self) -> Response;
 }
 
-impl ToResponse for Response {
+impl IntoResponse for Response {
     fn to_response(self) -> Response {
         self
     }
 }
 
-impl ToResponse for () {
+impl IntoResponse for () {
     fn to_response(self) -> Response {
         Response::new(StatusCode::NoContent)
-    }
-}
-
-impl<T: ToResponse, E: Display> ToResponse for Result<T, E> {
-    fn to_response(self) -> Response {
-        match self {
-            Ok(t) => t.to_response(),
-            Err(e) => Response::with_body(
-                StatusCode::InternalServerError,
-                e.to_string().as_bytes().to_vec(),
-            ),
-        }
     }
 }

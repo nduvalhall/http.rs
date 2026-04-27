@@ -1,10 +1,10 @@
-use http::{Response, StatusCode, ToResponse};
+use http::{IntoResponse, Response, StatusCode};
 
-pub enum Error {
+pub enum UMSError {
     UnknownError(String),
 }
 
-impl ToResponse for Error {
+impl IntoResponse for UMSError {
     fn to_response(self) -> Response {
         match self {
             Self::UnknownError(message) => Response {
