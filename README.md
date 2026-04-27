@@ -12,27 +12,32 @@ A lightweight, single-threaded HTTP API framework for Rust. Attach handlers to r
 ## Quick start
 
 ```rust
-struct Ctx { count: u32 }
+use http::{Route, Server};
 
-fn increment(ctx: &mut Ctx, _: ()) -> () {
+struct Ctx { count: i32 }
+
+fn increment(ctx: &mut Ctx, _: ()) {
     ctx.count += 1;
 }
 
-fn get_count(ctx: &mut Ctx, _: ()) -> Response {
-    Response::ok(format!("{{\"count\":{}}}", ctx.count))
+fn get_count(ctx: &mut Ctx, _: ()) -> String {
+    format!("{{\"count\":{}}}", ctx.count)
 }
 
 fn main() {
     let mut server = Server::new("127.0.0.1:3000", Ctx { count: 0 });
-    server.add_route(Route::new("POST", "/increment", increment));
-    server.add_route(Route::new("GET",  "/count",     get_count));
+    server.add_route(Route::post("/increment", increment));
+    server.add_route(Route::get("/count", get_count));
     server.run();
 }
 ```
 
+Routes are created with `Route::get`, `Route::post`, or `Route::put` — no string method names. Handler return types implement `IntoResponse`, so you can return `()`, `String`, `Response`, `Result<T, E>`, `&'static str`, and more without wrapping manually.
+
 ## Examples
 
 - `examples/counter/` — stateful counter with an HTML UI
+- `examples/middleware/` — API-key auth middleware applied globally
 - `examples/poll/` — multi-option poll with live vote totals
 - `examples/simple/` — minimal hello-world setup
 - `examples/ums/` — user management system demonstrating `FromRequest` on a custom type
@@ -41,6 +46,7 @@ Run any example:
 
 ```
 cargo run --example counter
+cargo run --example middleware
 cargo run --example poll
 cargo run --example simple
 cargo run --example ums
@@ -70,7 +76,7 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 - [x] Trait-based handler wrappers (`FromRequest` / `ToResponse`)
 - [ ] Dynamic path segments — `/users/:id` extractable in `FromRequest`
 - [ ] Query string access — `?foo=bar` extractable in `FromRequest`
-- [ ] Automatic 404 response when no route matches (currently silently drops)
+- [x] Automatic 404 response when no route matches (currently silently drops)
 - [ ] Automatic 405 response when path matches but method does not
 
 ### Request
@@ -78,7 +84,7 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 - [x] Method and path as `&str`
 - [x] Raw body as `String`
 - [x] `FromRequest` impl for `Request` (pass-through), `()` (no body needed)
-- [ ] Expose request headers as a parsed map (at minimum `Content-Type`, `Content-Length`, `Authorization`)
+- [x] Expose request headers as a parsed map (at minimum `Content-Type`, `Content-Length`, `Authorization`)
 - [ ] Honor `Content-Length` header to read the correct number of body bytes (current 4 KB buffer silently truncates larger bodies)
 - [ ] `FromRequest` impl for `String` (raw body string without wrapping in Request)
 
@@ -111,11 +117,11 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 
 ### Middleware
 
-- [ ] Define a `Middleware` trait (or function signature) that receives a `Request` and returns a `Request` — allowing mutation, enrichment, or early rejection before the handler runs
-- [ ] Middleware chain: multiple middleware run in order; any one can short-circuit with a `Response` instead of passing the request forward
+- [] Define a `Middleware` trait (or function signature) that receives a `Request` and returns a `Request` — allowing mutation, enrichment, or early rejection before the handler runs
+- [x] Middleware chain: multiple middleware run in order; any one can short-circuit with a `Response` instead of passing the request forward
 - [ ] Built-in middleware: request logging (method, path, response status, duration)
 - [ ] Built-in middleware: `Authorization` header extraction / rejection (returns 401 if missing or invalid)
-- [ ] Attach middleware globally (all routes) or per-route
+- [x] Attach middleware globally (all routes) or per-route
 
 ### Testing
 
