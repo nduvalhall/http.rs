@@ -1,39 +1,42 @@
-use crate::status_code::StatusCode;
+use std::fmt;
 
-pub struct Response {
-    pub status_code: StatusCode,
-    pub body: Vec<u8>,
+pub enum Response {
+    Ok(String),
+    NoContent,
+    Unauthorized,
+    NotFound,
+    InternalServerError(String),
+}
+
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Ok(_) => "200 OK",
+            Self::NoContent => "204 No Content",
+            Self::Unauthorized => "401 Unauthorized",
+            Self::NotFound => "404 Not Found",
+            Self::InternalServerError(_) => "500 Internal Server Error",
+        };
+        f.write_str(s)
+    }
 }
 
 impl Response {
-    pub fn new(status_code: StatusCode) -> Self {
-        Response {
-            status_code,
-            body: Vec::new(),
-        }
-    }
-
-    pub fn with_body(status_code: StatusCode, body: Vec<u8>) -> Self {
-        Response { status_code, body }
-    }
-
     pub fn to_bytes(&self) -> Vec<u8> {
-        let header = match self.status_code {
-            StatusCode::Ok | StatusCode::InternalServerError => {
+        let status_code = format!("{}", &self);
+        match self {
+            Self::Ok(body) | Self::InternalServerError(body) => {
                 format!(
-                    "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n",
-                    self.status_code,
-                    self.body.len()
-                )
+                    "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
+                    status_code,
+                    body.len(),
+                    body
+                ).into_bytes()
             }
-            StatusCode::NoContent | StatusCode::Unauthorized | StatusCode::NotFound => {
-                format!("HTTP/1.1 {}\r\n\r\n", self.status_code)
+            Self::NoContent | Self::Unauthorized | Self::NotFound => {
+                format!("HTTP/1.1 {}\r\n\r\n", self).into_bytes()
             }
-        };
-
-        let mut bytes = header.into_bytes();
-        bytes.extend_from_slice(&self.body);
-        bytes
+        }
     }
 }
 
@@ -49,13 +52,19 @@ impl IntoResponse for Response {
 
 impl IntoResponse for &str {
     fn to_response(self) -> Response {
-        Response::with_body(StatusCode::Ok, self.as_bytes().to_vec())
+        Response::Ok(self.to_string())
+    }
+}
+
+impl IntoResponse for String {
+    fn to_response(self) -> Response {
+        Response::Ok(self)
     }
 }
 
 impl IntoResponse for () {
     fn to_response(self) -> Response {
-        Response::new(StatusCode::NoContent)
+        Response::NoContent
     }
 }
 

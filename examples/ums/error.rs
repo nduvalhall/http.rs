@@ -1,4 +1,4 @@
-use http::{IntoResponse, Response, StatusCode};
+use http::{IntoResponse, Response};
 
 pub enum UMSError {
     UnknownError(String),
@@ -7,10 +7,7 @@ pub enum UMSError {
 impl IntoResponse for UMSError {
     fn to_response(self) -> Response {
         match self {
-            Self::UnknownError(message) => Response {
-                status_code: StatusCode::InternalServerError,
-                body: message.as_bytes().to_vec(),
-            },
+            Self::UnknownError(message) => Response::InternalServerError(message),
         }
     }
 }

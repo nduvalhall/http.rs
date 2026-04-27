@@ -6,7 +6,7 @@ A lightweight, single-threaded HTTP API framework for Rust. Attach handlers to r
 
 - **Single-threaded** — no `Arc`, no `Mutex`, no surprise contention. Each request runs sequentially.
 - **Typed context** — your application state flows through every handler as a `&mut C`.
-- **Trait-driven handlers** — `FromRequest` / `ToResponse` let the type system wire inputs and outputs without macros.
+- **Trait-driven handlers** — `FromRequest` / `IntoResponse` let the type system wire inputs and outputs without macros.
 - **Offload heavy work** — handlers run on the single server thread; any blocking or CPU-intensive work must be handed off to a separate thread or a separate service. A slow handler stalls every subsequent request.
 
 ## Quick start
@@ -33,6 +33,36 @@ fn main() {
 ```
 
 Routes are created with `Route::get`, `Route::post`, or `Route::put` — no string method names. Handler return types implement `IntoResponse`, so you can return `()`, `String`, `Response`, `Result<T, E>`, `&'static str`, and more without wrapping manually.
+
+`Response` is an enum — use its variants directly instead of a builder:
+
+```rust
+Response::Ok("body".to_string())     // 200
+Response::NoContent                  // 204
+Response::Unauthorized               // 401
+Response::NotFound                   // 404
+Response::InternalServerError("msg".to_string()) // 500
+```
+
+Implement `IntoResponse` on your own error types to integrate with `Result<T, E>` return values:
+
+```rust
+use http::{IntoResponse, Response};
+
+enum AppError {
+    NotFound,
+    Internal(String),
+}
+
+impl IntoResponse for AppError {
+    fn to_response(self) -> Response {
+        match self {
+            Self::NotFound => Response::NotFound,
+            Self::Internal(msg) => Response::InternalServerError(msg),
+        }
+    }
+}
+```
 
 ## Examples
 
@@ -68,7 +98,7 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 - [x] Generic context type `C` shared across all handlers
 - [ ] Graceful shutdown on SIGINT / SIGTERM
 - [ ] Recover from handler panics without killing the server (catch_unwind)
-- [ ] Replace all `unwrap` / `expect` with proper error propagation; log and return 500 instead of crashing
+- [x] Replace all `unwrap` / `expect` with proper error propagation; log and return 500 instead of crashing
 
 ### Routing
 
@@ -90,11 +120,9 @@ Tasks marked **[done]** are already implemented. Everything else is the roadmap.
 
 ### Response
 
-- [x] `StatusCode`: 200 Ok, 204 No Content, 404 Not Found, 500 Internal Server Error
-- [x] `Response::ok(body)` builder
-- [x] `ToResponse` for `()` → 204, `Result<T,E>` → 500 on error
-- [ ] Add status codes: 201 Created, 400 Bad Request, 401 Unauthorized, 403 Forbidden, 409 Conflict, 422 Unprocessable Entity
-- [ ] `Response::with_status(code, body)` builder for arbitrary status codes
+- [x] `Response` enum variants: `Ok(String)`, `NoContent`, `Unauthorized`, `NotFound`, `InternalServerError(String)`
+- [x] `IntoResponse` for `()` → 204, `&str` / `String` → 200, `Result<T,E>` delegates to inner types
+- [ ] Add variants: `Created(String)`, `BadRequest(String)`, `Forbidden`, `Conflict(String)`, `UnprocessableEntity(String)`
 - [ ] Set arbitrary response headers (at minimum `Content-Type`)
 - [ ] `Content-Type: application/json` response variant
 

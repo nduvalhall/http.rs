@@ -1,16 +1,16 @@
-use http::{Request, Response, Route, Server, StatusCode};
+use http::{Request, Response, Route, Server};
 
 struct Context {
     counter: i32,
 }
 
 fn index(_: &mut Context, _: Request) -> Response {
-    Response::with_body(StatusCode::Ok, Vec::from(include_str!("counter.html")))
+    Response::Ok(include_str!("counter.html").to_string())
 }
 
 fn get_count(context: &mut Context, _: Request) -> Response {
     let response = format!(r#"{{"count": {}}}"#, context.counter);
-    Response::with_body(StatusCode::Ok, Vec::from(response.as_bytes()))
+    Response::Ok(response)
 }
 
 fn increment(context: &mut Context, _: Request) {

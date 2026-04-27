@@ -1,4 +1,4 @@
-use http::{Request, Response, Route, Server, StatusCode};
+use http::{Request, Response, Route, Server};
 
 struct Poll {
     yes: u32,
@@ -7,15 +7,15 @@ struct Poll {
 }
 
 fn index(_: &mut Poll, _: Request) -> Response {
-    Response::with_body(StatusCode::Ok, Vec::from(include_str!("poll.html")))
+    Response::Ok(include_str!("poll.html").to_string())
 }
 
 fn get_votes(poll: &mut Poll, _: Request) -> Response {
-    let body = format!(
+    let results = format!(
         r#"{{"yes":{},"no":{},"maybe":{}}}"#,
         poll.yes, poll.no, poll.maybe
     );
-    Response::with_body(StatusCode::Ok, Vec::from(body.as_bytes()))
+    Response::Ok(results)
 }
 
 fn vote_yes(poll: &mut Poll, _: Request) {

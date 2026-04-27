@@ -1,4 +1,4 @@
-use http::{Middleware, Request, Response, Route, Server, StatusCode};
+use http::{Middleware, Request, Response, Route, Server};
 
 const API_KEY: &str = "secret";
 
@@ -7,7 +7,7 @@ struct Context {}
 fn auth(_: &mut Context, request: Request) -> Result<Request, Response> {
     match request.get_header("x-api-key") {
         Some(key) if key == API_KEY => Ok(request),
-        _ => Err(Response::new(StatusCode::Unauthorized)),
+        _ => Err(Response::Unauthorized),
     }
 }
 

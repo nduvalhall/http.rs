@@ -21,19 +21,19 @@ impl Pipe {
         Pipe { values }
     }
 
-    pub fn from_str(str: &str) -> Self {
+    pub fn from_str(str: &str) -> Option<Self> {
         let pairs = str.split('|');
 
         let mut values = HashMap::new();
         for pair in pairs {
-            let (key, value) = pair.split_once('=').unwrap();
+            let (key, value) = pair.split_once('=')?;
             values.insert(key.to_string(), value.to_string());
         }
-        Self::new(values)
+        Some(Self::new(values))
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        Self::from_str(std::str::from_utf8(bytes).unwrap())
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        Self::from_str(std::str::from_utf8(bytes).ok()?)
     }
 
     pub fn to_string(&self) -> String {
@@ -49,6 +49,6 @@ impl Pipe {
     }
 
     pub fn get(&self, key: &str) -> Option<String> {
-        self.values.get(key).map(|s| s.to_owned())
+        self.values.get(key).map(|s| s.to_string())
     }
 }
