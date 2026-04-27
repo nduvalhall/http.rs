@@ -32,10 +32,6 @@ impl Pipe {
         Self::new(values)
     }
 
-    pub fn from_string(string: &String) -> Self {
-        Self::from_str(&string)
-    }
-
     pub fn from_bytes(bytes: &[u8]) -> Self {
         Self::from_str(std::str::from_utf8(bytes).unwrap())
     }
@@ -49,10 +45,10 @@ impl Pipe {
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.to_string().as_bytes().to_vec()
+        self.to_string().into_bytes()
     }
 
-    pub fn get(&self, key: &str) -> Option<&String> {
-        self.values.get(key)
+    pub fn get(&self, key: &str) -> Option<String> {
+        self.values.get(key).map(|s| s.to_owned())
     }
 }

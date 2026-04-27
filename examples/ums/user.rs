@@ -12,7 +12,7 @@ pub struct User {
 impl FromRequest for User {
     type Error = ();
     fn from_request(request: Request) -> Result<Self, Self::Error> {
-        let pipe = Pipe::from_string(&request.body);
+        let pipe = Pipe::from_str(&request.body);
         Ok(User {
             name: pipe.get("name").unwrap().trim().to_owned(),
             age: u8::from_str_radix(pipe.get("age").unwrap().trim(), 10).unwrap(),
@@ -34,7 +34,7 @@ pub struct RaiseError {
 impl FromRequest for RaiseError {
     type Error = UMSError;
     fn from_request(request: Request) -> Result<Self, Self::Error> {
-        let pipe = Pipe::from_string(&request.body);
+        let pipe = Pipe::from_str(&request.body);
         Err(UMSError::UnknownError(
             pipe.get("error").unwrap().to_owned(),
         ))

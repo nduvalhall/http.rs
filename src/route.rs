@@ -5,13 +5,13 @@ use crate::{
 };
 
 pub struct Route<C> {
-    pub method: Method,
-    pub path: &'static str,
-    pub handler: Box<dyn Fn(&mut C, Request) -> Response>,
+    method: Method,
+    path: &'static str,
+    handler: Box<dyn Fn(&mut C, Request) -> Response>,
 }
 
 impl<C: 'static> Route<C> {
-    pub fn wrap<Req, Res>(f: fn(&mut C, Req) -> Res) -> Box<dyn Fn(&mut C, Request) -> Response>
+    fn wrap<Req, Res>(f: fn(&mut C, Req) -> Res) -> Box<dyn Fn(&mut C, Request) -> Response>
     where
         Req: FromRequest + 'static,
         Res: IntoResponse + 'static,
@@ -32,6 +32,18 @@ impl<C: 'static> Route<C> {
             path,
             handler: Self::wrap(handler),
         }
+    }
+
+    pub fn get_method(&self) -> &Method {
+        &self.method
+    }
+
+    pub fn get_path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn get_handler(&self) -> &Box<dyn Fn(&mut C, Request) -> Response> {
+        &self.handler
     }
 
     pub fn get<Req, Res>(path: &'static str, handler: fn(&mut C, Req) -> Res) -> Self

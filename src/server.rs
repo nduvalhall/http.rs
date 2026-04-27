@@ -28,9 +28,9 @@ impl<C: 'static> Server<C> {
         if let Some(route) = self
             .routes
             .iter()
-            .find(|&r| r.method == request.method && r.path == request.path)
+            .find(|&r| *r.get_method() == request.method && r.get_path() == request.path)
         {
-            (route.handler)(&mut self.context, request)
+            (route.get_handler())(&mut self.context, request)
         } else {
             Response::new(StatusCode::NotFound)
         }

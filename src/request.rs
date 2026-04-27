@@ -13,7 +13,7 @@ impl Request {
 
         let first_line = lines.next().unwrap_or("");
         let mut parts = first_line.split_whitespace();
-        let method = parts.next().unwrap_or("").to_string();
+        let method = parts.next().unwrap_or("");
         let path = parts.next().unwrap_or("").to_string();
 
         for line in lines.by_ref() {
