@@ -52,3 +52,12 @@ impl IntoResponse for () {
         Response::new(StatusCode::NoContent)
     }
 }
+
+impl<T: IntoResponse, E: IntoResponse> IntoResponse for Result<T, E> {
+    fn to_response(self) -> Response {
+        match self {
+            Ok(val) => val.to_response(),
+            Err(err) => err.to_response(),
+        }
+    }
+}

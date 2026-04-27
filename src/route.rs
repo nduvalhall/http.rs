@@ -11,32 +11,21 @@ pub struct Route<C> {
 }
 
 impl<C: 'static> Route<C> {
-    pub fn wrap<Req, Res, Err>(
-        f: fn(&mut C, Req) -> Result<Res, Err>,
-    ) -> Box<dyn Fn(&mut C, Request) -> Response>
+    pub fn wrap<Req, Res>(f: fn(&mut C, Req) -> Res) -> Box<dyn Fn(&mut C, Request) -> Response>
     where
         Req: FromRequest + 'static,
         Res: IntoResponse + 'static,
-        Err: IntoResponse + 'static,
     {
         Box::new(move |context, request| match Req::from_request(request) {
-            Ok(req) => match f(context, req) {
-                Ok(req) => req.to_response(),
-                Err(error) => error.to_response(),
-            },
+            Ok(req) => f(context, req).to_response(),
             Err(error) => error.to_response(),
         })
     }
 
-    fn new<Req, Res, Err>(
-        method: Method,
-        path: &'static str,
-        handler: fn(&mut C, Req) -> Result<Res, Err>,
-    ) -> Self
+    fn new<Req, Res>(method: Method, path: &'static str, handler: fn(&mut C, Req) -> Res) -> Self
     where
         Req: FromRequest + 'static,
         Res: IntoResponse + 'static,
-        Err: IntoResponse + 'static,
     {
         Route {
             method,
@@ -45,38 +34,26 @@ impl<C: 'static> Route<C> {
         }
     }
 
-    pub fn get<Req, Res, Err>(
-        path: &'static str,
-        handler: fn(&mut C, Req) -> Result<Res, Err>,
-    ) -> Self
+    pub fn get<Req, Res>(path: &'static str, handler: fn(&mut C, Req) -> Res) -> Self
     where
         Req: FromRequest + 'static,
         Res: IntoResponse + 'static,
-        Err: IntoResponse + 'static,
     {
         Route::new(Method::Get, path, handler)
     }
 
-    pub fn post<Req, Res, Err>(
-        path: &'static str,
-        handler: fn(&mut C, Req) -> Result<Res, Err>,
-    ) -> Self
+    pub fn post<Req, Res>(path: &'static str, handler: fn(&mut C, Req) -> Res) -> Self
     where
         Req: FromRequest + 'static,
         Res: IntoResponse + 'static,
-        Err: IntoResponse + 'static,
     {
         Route::new(Method::Post, path, handler)
     }
 
-    pub fn put<Req, Res, Err>(
-        path: &'static str,
-        handler: fn(&mut C, Req) -> Result<Res, Err>,
-    ) -> Self
+    pub fn put<Req, Res>(path: &'static str, handler: fn(&mut C, Req) -> Res) -> Self
     where
         Req: FromRequest + 'static,
         Res: IntoResponse + 'static,
-        Err: IntoResponse + 'static,
     {
         Route::new(Method::Put, path, handler)
     }

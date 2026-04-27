@@ -4,31 +4,23 @@ struct Context {
     counter: i32,
 }
 
-fn index(_: &mut Context, _: ()) -> Result<Response, ()> {
-    Ok(Response::with_body(
-        StatusCode::Ok,
-        Vec::from(include_str!("counter.html")),
-    ))
+fn index(_: &mut Context, _: ()) -> Response {
+    Response::with_body(StatusCode::Ok, Vec::from(include_str!("counter.html")))
 }
 
-fn get_count(context: &mut Context, _: ()) -> Result<Response, ()> {
+fn get_count(context: &mut Context, _: ()) -> Response {
     let response = format!(r#"{{"count": {}}}"#, context.counter);
-    Ok(Response::with_body(
-        StatusCode::Ok,
-        Vec::from(response.as_bytes()),
-    ))
+    Response::with_body(StatusCode::Ok, Vec::from(response.as_bytes()))
 }
 
-fn increment(context: &mut Context, _: ()) -> Result<(), ()> {
+fn increment(context: &mut Context, _: ()) {
     context.counter += 1;
     println!("Counter: {}", context.counter);
-    Ok(())
 }
 
-fn decrement(context: &mut Context, _: ()) -> Result<(), ()> {
+fn decrement(context: &mut Context, _: ()) {
     context.counter -= 1;
     println!("Counter: {}", context.counter);
-    Ok(())
 }
 
 fn main() {

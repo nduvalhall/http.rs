@@ -6,40 +6,31 @@ struct Poll {
     maybe: u32,
 }
 
-fn index(_: &mut Poll, _: ()) -> Result<Response, ()> {
-    Ok(Response::with_body(
-        StatusCode::Ok,
-        Vec::from(include_str!("poll.html")),
-    ))
+fn index(_: &mut Poll, _: ()) -> Response {
+    Response::with_body(StatusCode::Ok, Vec::from(include_str!("poll.html")))
 }
 
-fn get_votes(poll: &mut Poll, _: ()) -> Result<Response, ()> {
+fn get_votes(poll: &mut Poll, _: ()) -> Response {
     let body = format!(
         r#"{{"yes":{},"no":{},"maybe":{}}}"#,
         poll.yes, poll.no, poll.maybe
     );
-    Ok(Response::with_body(
-        StatusCode::Ok,
-        Vec::from(body.as_bytes()),
-    ))
+    Response::with_body(StatusCode::Ok, Vec::from(body.as_bytes()))
 }
 
-fn vote_yes(poll: &mut Poll, _: ()) -> Result<(), ()> {
+fn vote_yes(poll: &mut Poll, _: ()) {
     poll.yes += 1;
     println!("yes: {}", poll.yes);
-    Ok(())
 }
 
-fn vote_no(poll: &mut Poll, _: ()) -> Result<(), ()> {
+fn vote_no(poll: &mut Poll, _: ()) {
     poll.no += 1;
     println!("no: {}", poll.no);
-    Ok(())
 }
 
-fn vote_maybe(poll: &mut Poll, _: ()) -> Result<(), ()> {
+fn vote_maybe(poll: &mut Poll, _: ()) {
     poll.maybe += 1;
     println!("maybe: {}", poll.maybe);
-    Ok(())
 }
 
 fn main() {
