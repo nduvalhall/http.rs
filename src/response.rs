@@ -76,3 +76,25 @@ impl<T: IntoResponse, E: IntoResponse> IntoResponse for Result<T, E> {
         }
     }
 }
+
+pub trait OrInternalServerError<T> {
+    fn or_internal_server_error(self, msg: &str) -> Result<T, Response>;
+}
+
+impl<T> OrInternalServerError<T> for Option<T> {
+    fn or_internal_server_error(self, msg: &str) -> Result<T, Response> {
+        match self {
+            Some(v) => Ok(v),
+            None => Err(Response::InternalServerError(msg.to_string())),
+        }
+    }
+}
+
+impl<T, E> OrInternalServerError<T> for Result<T, E> {
+    fn or_internal_server_error(self, msg: &str) -> Result<T, Response> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(_) => Err(Response::InternalServerError(msg.to_string())),
+        }
+    }
+}

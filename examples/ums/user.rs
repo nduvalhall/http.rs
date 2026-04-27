@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use http::{FromRequest, Pipe, Request, Response};
+use http::{FromRequest, OrInternalServerError, Pipe, Request, Response};
 
 pub struct User {
     name: String,
@@ -9,26 +9,17 @@ pub struct User {
 
 impl FromRequest for User {
     fn from_request(request: Request) -> Result<Self, Response> {
-        let Some(pipe) = Pipe::from_str(&request.body) else {
-            return Err(Response::InternalServerError(
-                "Failed to parse pipe".to_string(),
-            ));
-        };
+        let pipe =
+            Pipe::from_str(&request.body).or_internal_server_error("Failed to parse pipe")?;
 
-        let Some(name) = pipe.get("name") else {
-            return Err(Response::InternalServerError(
-                "Field 'name' not found in pipe".to_string(),
-            ));
-        };
+        let name = pipe
+            .get("name")
+            .or_internal_server_error("Field 'name' not found in pipe")?;
 
-        let Some(age) = pipe
+        let age = pipe
             .get("age")
             .and_then(|v| u8::from_str_radix(&v, 10).ok())
-        else {
-            return Err(Response::InternalServerError(
-                "Field 'age' not found in pipe".to_string(),
-            ));
-        };
+            .or_internal_server_error("Field 'age' not found in pipe")?;
 
         Ok(User { name, age })
     }
@@ -47,17 +38,12 @@ pub struct RaiseError {
 
 impl FromRequest for RaiseError {
     fn from_request(request: Request) -> Result<Self, Response> {
-        let Some(pipe) = Pipe::from_str(&request.body) else {
-            return Err(Response::InternalServerError(
-                "Failed to parse pipe".to_string(),
-            ));
-        };
+        let pipe =
+            Pipe::from_str(&request.body).or_internal_server_error("Failed to parse pipe")?;
 
-        let Some(error) = pipe.get("error") else {
-            return Err(Response::InternalServerError(
-                "Field 'error' not found in pipe".to_string(),
-            ));
-        };
+        let error = pipe
+            .get("error")
+            .or_internal_server_error("Field 'error' not found in pipe")?;
 
         Err(Response::InternalServerError(error))
     }
