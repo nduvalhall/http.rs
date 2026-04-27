@@ -26,7 +26,7 @@ impl Response {
                     self.body.len()
                 )
             }
-            StatusCode::NoContent | StatusCode::NotFound => {
+            StatusCode::NoContent | StatusCode::Unauthorized | StatusCode::NotFound => {
                 format!("HTTP/1.1 {}\r\n\r\n", self.status_code)
             }
         };
@@ -44,6 +44,12 @@ pub trait IntoResponse {
 impl IntoResponse for Response {
     fn to_response(self) -> Response {
         self
+    }
+}
+
+impl IntoResponse for &str {
+    fn to_response(self) -> Response {
+        Response::with_body(StatusCode::Ok, self.as_bytes().to_vec())
     }
 }
 

@@ -1,8 +1,4 @@
-use crate::{
-    Method, Response,
-    request::{FromRequest, Request},
-    response::IntoResponse,
-};
+use crate::{FromRequest, IntoResponse, Method, Request, Response};
 
 pub struct Route<C> {
     method: Method,

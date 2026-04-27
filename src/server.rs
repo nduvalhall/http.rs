@@ -3,11 +3,12 @@ use std::{
     net::TcpListener,
 };
 
-use crate::{request::Request, response::Response, route::Route, status_code::StatusCode};
+use crate::{Middleware, Request, Response, Route, StatusCode};
 
 pub struct Server<C: 'static> {
     address: &'static str,
     context: C,
+    middleware: Vec<Middleware<C>>,
     routes: Vec<Route<C>>,
 }
 
@@ -16,6 +17,7 @@ impl<C: 'static> Server<C> {
         Self {
             address,
             context,
+            middleware: Vec::new(),
             routes: Vec::new(),
         }
     }
@@ -24,7 +26,21 @@ impl<C: 'static> Server<C> {
         self.routes.push(route);
     }
 
-    fn dispatch(&mut self, request: Request) -> Response {
+    pub fn add_middleware(&mut self, middleware: Middleware<C>) {
+        self.middleware.push(middleware);
+    }
+
+    fn dispatch(&mut self, mut request: Request) -> Response {
+        for middleware in self.middleware.iter() {
+            let path = middleware.get_path();
+            if path == "*" || path == request.path {
+                request = match (middleware.get_handler())(&mut self.context, request) {
+                    Ok(req) => req,
+                    Err(response) => return response,
+                };
+            }
+        }
+
         if let Some(route) = self
             .routes
             .iter()
