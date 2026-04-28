@@ -8,16 +8,23 @@ fn index(_: &mut Context, _: Request) -> Response {
     Response::ok(include_str!("counter.html").to_string())
 }
 
-struct Count(i32);
+struct Count {
+    count: i32,
+}
 
 impl IntoJson for Count {
     fn to_json(self) -> Json {
-        Json::JsonString(self.0.to_string())
+        Json::JsonObject(vec![(
+            "count".to_string(),
+            Json::JsonInt(self.count.into()),
+        )])
     }
 }
 
 fn get_count(context: &mut Context, _: Request) -> Response {
-    Response::ok(Count(context.counter))
+    Response::ok(Count {
+        count: context.counter,
+    })
 }
 
 fn increment(context: &mut Context, _: Request) {
