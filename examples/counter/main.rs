@@ -1,16 +1,23 @@
-use http::{Request, Response, Route, Server};
+use http::{IntoJson, Json, Request, Response, Route, Server};
 
 struct Context {
     counter: i32,
 }
 
 fn index(_: &mut Context, _: Request) -> Response {
-    Response::Ok(include_str!("counter.html").to_string())
+    Response::ok(include_str!("counter.html").to_string())
+}
+
+struct Count(i32);
+
+impl IntoJson for Count {
+    fn to_json(self) -> Json {
+        Json::JsonString(self.0.to_string())
+    }
 }
 
 fn get_count(context: &mut Context, _: Request) -> Response {
-    let response = format!(r#"{{"count": {}}}"#, context.counter);
-    Response::Ok(response)
+    Response::ok(Count(context.counter))
 }
 
 fn increment(context: &mut Context, _: Request) {

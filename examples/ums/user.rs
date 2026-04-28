@@ -45,6 +45,6 @@ impl FromRequest for RaiseError {
             .get("error")
             .or_internal_server_error("Field 'error' not found in pipe")?;
 
-        Err(Response::InternalServerError(error))
+        Err(Response::internal_server_error(error))
     }
 }

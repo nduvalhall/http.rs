@@ -48,7 +48,7 @@ impl<C: 'static> Server<C> {
             .collect();
 
         if path_routes.is_empty() {
-            return Response::NotFound;
+            return Response::not_found();
         }
 
         match path_routes
@@ -56,12 +56,12 @@ impl<C: 'static> Server<C> {
             .find(|&r| *r.get_method() == request.method)
         {
             Some(route) => (route.get_handler())(&mut self.context, request),
-            None => Response::MethodNotAllowed,
+            None => Response::method_not_allowed(),
         }
     }
 
     fn send_error_response(stream: &mut impl Write) {
-        let _ = stream.write_all(&Response::InternalServerError(String::new()).to_bytes());
+        let _ = stream.write_all(&Response::internal_server_error(String::new()).to_bytes());
     }
 
     pub fn run(mut self) {

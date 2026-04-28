@@ -7,7 +7,7 @@ struct Context {}
 fn auth(_: &mut Context, request: Request) -> Result<Request, Response> {
     match request.get_header("x-api-key") {
         Some(key) if key == API_KEY => Ok(request),
-        _ => Err(Response::Unauthorized),
+        _ => Err(Response::unauthorized()),
     }
 }
 
