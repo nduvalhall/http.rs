@@ -4,7 +4,8 @@ pub enum Method {
     Post,
     Put,
     Delete,
-    Option,
+    Options,
+    Unknown(String),
 }
 
 impl Method {
@@ -14,8 +15,8 @@ impl Method {
             "POST" => Method::Post,
             "PUT" => Method::Put,
             "DELETE" => Method::Delete,
-            "OPTION" => Method::Option,
-            _ => panic!("Unknow method: {}", method),
+            "OPTIONS" => Method::Options,
+            other => Method::Unknown(other.to_string()),
         }
     }
 }

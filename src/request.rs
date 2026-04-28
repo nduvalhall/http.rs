@@ -47,8 +47,6 @@ impl Request {
             headers,
         };
 
-        println!("{:?}", req);
-
         Some(req)
     }
 

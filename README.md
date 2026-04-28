@@ -34,14 +34,14 @@ fn main() {
 
 Routes are created with `Route::get`, `Route::post`, or `Route::put` — no string method names. Handler return types implement `IntoResponse`, so you can return `()`, `String`, `Response`, `Result<T, E>`, `&'static str`, and more without wrapping manually.
 
-`Response` is an enum — use its variants directly instead of a builder:
+`Response` constructors:
 
 ```rust
-Response::Ok("body".to_string())     // 200
-Response::NoContent                  // 204
-Response::Unauthorized               // 401
-Response::NotFound                   // 404
-Response::InternalServerError("msg".to_string()) // 500
+Response::ok("body".to_string())          // 200
+Response::no_content()                    // 204
+Response::unauthorized()                  // 401
+Response::not_found()                     // 404
+Response::internal_server_error("msg")    // 500
 ```
 
 Implement `IntoResponse` on your own error types to integrate with `Result<T, E>` return values:
