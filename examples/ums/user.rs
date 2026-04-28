@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use http::{FromRequest, OrInternalServerError, Pipe, Request, Response};
+use http::prelude::*;
 
 pub struct User {
     name: String,

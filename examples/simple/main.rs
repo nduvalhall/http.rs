@@ -1,4 +1,4 @@
-use http::{Request, Route, Server};
+use http::prelude::*;
 
 fn index(_: &mut (), _: Request) -> Result<(), ()> {
     println!("index endpoint called");

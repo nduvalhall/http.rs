@@ -1,4 +1,4 @@
-use http::{IntoJson, Json, Request, Response, Route, Server};
+use http::prelude::*;
 
 struct Car {
     brand: String,

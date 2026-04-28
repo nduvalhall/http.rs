@@ -1,4 +1,4 @@
-use http::{Middleware, Request, Response, Route, Server};
+use http::prelude::*;
 
 const API_KEY: &str = "secret";
 

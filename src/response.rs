@@ -2,24 +2,23 @@ use std::fmt;
 
 use crate::IntoJson;
 use crate::IntoJsonObject;
+use crate::Json;
 
 pub struct Response(ResponseInner);
 
 enum ResponseInner {
     Ok(Box<dyn IntoJsonObject>),
-    Json(Box<dyn IntoJsonObject>),
     NoContent,
     Unauthorized,
     NotFound,
     MethodNotAllowed,
-    InternalServerError(String),
+    InternalServerError(Box<dyn IntoJsonObject>),
 }
 
 impl fmt::Display for Response {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match &self.0 {
             ResponseInner::Ok(_) => "200 OK",
-            ResponseInner::Json(_) => "200 OK",
             ResponseInner::NoContent => "204 No Content",
             ResponseInner::Unauthorized => "401 Unauthorized",
             ResponseInner::NotFound => "404 Not Found",
@@ -33,12 +32,6 @@ impl fmt::Display for Response {
 impl Response {
     pub fn ok(body: impl IntoJson + 'static) -> Self {
         Response(ResponseInner::Ok(Box::new(body) as Box<dyn IntoJsonObject>))
-    }
-
-    pub fn json(body: impl IntoJson + 'static) -> Self {
-        Response(ResponseInner::Json(
-            Box::new(body) as Box<dyn IntoJsonObject>
-        ))
     }
 
     pub fn no_content() -> Self {
@@ -58,13 +51,15 @@ impl Response {
     }
 
     pub fn internal_server_error(msg: impl Into<String>) -> Self {
-        Response(ResponseInner::InternalServerError(msg.into()))
+        Response(ResponseInner::InternalServerError(Box::new(
+            Json::JsonObject(vec![("detail".into(), Json::JsonString(msg.into()))]),
+        )))
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
         let status_code = format!("{}", &self);
         match self.0 {
-            ResponseInner::Ok(body) | ResponseInner::Json(body) => {
+            ResponseInner::Ok(body) | ResponseInner::InternalServerError(body) => {
                 let json = body.to_json_boxed();
                 let s = json.to_string();
                 format!(
@@ -74,20 +69,10 @@ impl Response {
                     s
                 ).into_bytes()
             }
-            ResponseInner::InternalServerError(body) => {
-                format!(
-                    "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
-                    status_code,
-                    body.len(),
-                    body
-                ).into_bytes()
-            }
             ResponseInner::NoContent
             | ResponseInner::Unauthorized
             | ResponseInner::NotFound
-            | ResponseInner::MethodNotAllowed => {
-                format!("HTTP/1.1 {}\r\n\r\n", self).into_bytes()
-            }
+            | ResponseInner::MethodNotAllowed => format!("HTTP/1.1 {}\r\n\r\n", self).into_bytes(),
         }
     }
 }

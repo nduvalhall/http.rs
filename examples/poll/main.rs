@@ -1,4 +1,4 @@
-use http::{Request, Response, Route, Server};
+use http::prelude::*;
 
 struct Poll {
     yes: u32,

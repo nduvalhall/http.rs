@@ -1,4 +1,4 @@
-use http::{Route, Server};
+use http::prelude::*;
 
 mod context;
 mod database;
@@ -13,7 +13,7 @@ fn main() {
 
     server.add_route(Route::get("/users", service::print_users));
     server.add_route(Route::post("/users", service::create_user));
-    server.add_route(Route::put("/raise-error", service::raise_error));
+    server.add_route(Route::post("/raise-error", service::raise_error));
 
     server.run();
 }
