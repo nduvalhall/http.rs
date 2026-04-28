@@ -1,4 +1,4 @@
-pub use crate::json::{IntoJson, IntoJsonObject, Json};
+pub use crate::json::{IntoJson, Json};
 pub use crate::method::Method;
 pub use crate::middleware::Middleware;
 pub use crate::pipe::Pipe;

@@ -61,7 +61,7 @@ impl<C: 'static> Server<C> {
     }
 
     fn send_error_response(stream: &mut impl Write) {
-        let _ = stream.write_all(&Response::internal_server_error(String::new()).to_bytes());
+        let _ = stream.write_all(&Response::internal_server_error("").to_bytes());
     }
 
     pub fn run(mut self) {

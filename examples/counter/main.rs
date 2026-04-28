@@ -5,7 +5,7 @@ struct Context {
 }
 
 fn index(_: &mut Context, _: Request) -> Response {
-    Response::ok(include_str!("counter.html").to_string())
+    Response::ok(&include_str!("counter.html").to_string())
 }
 
 struct Count {
@@ -22,9 +22,14 @@ impl IntoJson for Count {
 }
 
 fn get_count(context: &mut Context, _: Request) -> Response {
-    Response::ok(Count {
-        count: context.counter,
-    })
+    Response::ok(
+        Count {
+            count: context.counter,
+        }
+        .to_json()
+        .to_string()
+        .as_str(),
+    )
 }
 
 fn increment(context: &mut Context, _: Request) {

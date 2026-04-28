@@ -7,7 +7,7 @@ struct Poll {
 }
 
 fn index(_: &mut Poll, _: Request) -> Response {
-    Response::ok(include_str!("poll.html").to_string())
+    Response::ok(&include_str!("poll.html").to_string())
 }
 
 fn get_votes(poll: &mut Poll, _: Request) -> Response {
@@ -15,7 +15,7 @@ fn get_votes(poll: &mut Poll, _: Request) -> Response {
         r#"{{"yes":{},"no":{},"maybe":{}}}"#,
         poll.yes, poll.no, poll.maybe
     );
-    Response::ok(results)
+    Response::ok(&results)
 }
 
 fn vote_yes(poll: &mut Poll, _: Request) {

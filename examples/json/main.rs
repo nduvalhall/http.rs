@@ -39,18 +39,23 @@ impl IntoJson for Person {
 }
 
 fn get_person(_: &mut (), _: Request) -> Response {
-    Response::ok(Person {
-        name: "James Smith".into(),
-        age: 30,
-        gender: "Male".into(),
-        occupation: "Blacksmith".into(),
-        car: Car {
-            brand: "Ford".into(),
-            model: "Fiesta".into(),
-            doors: 5,
-            year: 2007,
-        },
-    })
+    Response::ok(
+        Person {
+            name: "James Smith".into(),
+            age: 30,
+            gender: "Male".into(),
+            occupation: "Blacksmith".into(),
+            car: Car {
+                brand: "Ford".into(),
+                model: "Fiesta".into(),
+                doors: 5,
+                year: 2007,
+            },
+        }
+        .to_json()
+        .to_string()
+        .as_str(),
+    )
 }
 
 fn main() {

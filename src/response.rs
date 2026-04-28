@@ -1,18 +1,14 @@
 use std::fmt;
 
-use crate::IntoJson;
-use crate::IntoJsonObject;
-use crate::Json;
-
 pub struct Response(ResponseInner);
 
 enum ResponseInner {
-    Ok(Box<dyn IntoJsonObject>),
+    Ok(String),
     NoContent,
     Unauthorized,
     NotFound,
     MethodNotAllowed,
-    InternalServerError(Box<dyn IntoJsonObject>),
+    InternalServerError(String),
 }
 
 impl fmt::Display for Response {
@@ -30,8 +26,8 @@ impl fmt::Display for Response {
 }
 
 impl Response {
-    pub fn ok(body: impl IntoJson + 'static) -> Self {
-        Response(ResponseInner::Ok(Box::new(body) as Box<dyn IntoJsonObject>))
+    pub fn ok(body: &str) -> Self {
+        Response(ResponseInner::Ok(body.into()))
     }
 
     pub fn no_content() -> Self {
@@ -50,23 +46,19 @@ impl Response {
         Response(ResponseInner::MethodNotAllowed)
     }
 
-    pub fn internal_server_error(msg: impl Into<String>) -> Self {
-        Response(ResponseInner::InternalServerError(Box::new(
-            Json::JsonObject(vec![("detail".into(), Json::JsonString(msg.into()))]),
-        )))
+    pub fn internal_server_error(msg: &str) -> Self {
+        Response(ResponseInner::InternalServerError(msg.into()))
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
         let status_code = format!("{}", &self);
         match self.0 {
             ResponseInner::Ok(body) | ResponseInner::InternalServerError(body) => {
-                let json = body.to_json_boxed();
-                let s = json.to_string();
                 format!(
                     "HTTP/1.1 {}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
                     status_code,
-                    s.len(),
-                    s
+                    body.len(),
+                    body
                 ).into_bytes()
             }
             ResponseInner::NoContent
@@ -89,13 +81,13 @@ impl IntoResponse for Response {
 
 impl IntoResponse for &str {
     fn to_response(self) -> Response {
-        Response::ok(self.to_string())
+        Response::ok(self)
     }
 }
 
 impl IntoResponse for String {
     fn to_response(self) -> Response {
-        Response::ok(self)
+        Response::ok(&self)
     }
 }
 
