@@ -1,6 +1,7 @@
 pub struct RawResponse {
     pub status_code: u16,
     pub headers: Vec<(String, String)>,
+    pub content_type: Option<&'static str>,
     pub body: Option<Vec<u8>>,
 }
 

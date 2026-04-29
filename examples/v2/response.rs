@@ -12,14 +12,10 @@ pub trait IntoBytes {
 
 impl<T: IntoBytes + ContentType> IntoRawResponse for Response<T> {
     fn into_raw_response(self) -> RawResponse {
-        let mut headers = self.headers;
-
-        let content_type = T::content_type();
-        headers.push(("Content-Type".into(), content_type.into()));
-
         RawResponse {
             status_code: self.status_code,
-            headers: headers,
+            headers: self.headers,
+            content_type: self.body.as_ref().map(|_| T::content_type()),
             body: self.body.map(|body| body.into_bytes()),
         }
     }

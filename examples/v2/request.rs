@@ -29,7 +29,7 @@ impl<T: FromBytes> FromRawRequest for Request<T> {
             method: raw_request.method,
             path: raw_request.path,
             headers: raw_request.headers,
-            body: body,
+            body,
         })
     }
 }
