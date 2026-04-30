@@ -1,184 +1,174 @@
-# celerity/http
+# http
 
 A lightweight, single-threaded HTTP API framework for Rust. Attach handlers to routes and carry state through a typed context.
 
 ## Philosophy
 
-- **Single-threaded** — no `Arc`, no `Mutex`, no surprise contention. Each request runs sequentially.
-- **Typed context** — your application state flows through every handler as a `&mut C`.
-- **Trait-driven handlers** — `FromRequest` / `IntoResponse` let the type system wire inputs and outputs without macros.
-- **Offload heavy work** — handlers run on the single server thread; any blocking or CPU-intensive work must be handed off to a separate thread or a separate service. A slow handler stalls every subsequent request.
+- **Single-threaded** — no `Arc`, no `Mutex`, no surprise contention. Requests are handled sequentially.
+- **Typed context** — your application state flows through every handler as `&mut C`.
+- **No external dependencies** — built entirely on `std`.
+- **Offload heavy work** — a slow handler stalls every subsequent request. Hand CPU-intensive or blocking work off to a separate thread or service.
 
 ## Quick start
 
 ```rust
-use http::{Route, Server};
+use http::{HttpError, Request, Response, Route, Server};
 
-struct Ctx { count: i32 }
-
-fn increment(ctx: &mut Ctx, _: ()) {
-    ctx.count += 1;
+struct Ctx {
+    count: i32,
 }
 
-fn get_count(ctx: &mut Ctx, _: ()) -> String {
-    format!("{{\"count\":{}}}", ctx.count)
+fn increment(ctx: &mut Ctx, _: Request) -> Result<Response, HttpError> {
+    ctx.count += 1;
+    Ok(Response::no_content())
+}
+
+fn get_count(ctx: &mut Ctx, _: Request) -> Result<Response, HttpError> {
+    Ok(Response::ok(format!("{{\"count\":{}}}", ctx.count)))
 }
 
 fn main() {
-    let mut server = Server::new("127.0.0.1:3000", Ctx { count: 0 });
-    server.add_route(Route::post("/increment", increment));
-    server.add_route(Route::get("/count", get_count));
-    server.run();
+    Server::new("127.0.0.1:3000", Ctx { count: 0 })
+        .route(Route::new("POST", "/increment", increment))
+        .route(Route::new("GET", "/count", get_count))
+        .run();
 }
 ```
 
-Routes are created with `Route::get`, `Route::post`, or `Route::put` — no string method names. Handler return types implement `IntoResponse`, so you can return `()`, `String`, `Response`, `Result<T, E>`, `&'static str`, and more without wrapping manually.
+## Routing
 
-`Response` constructors:
+Routes are created with `Route::new(method, path, handler)`. The method is any HTTP method string (`"GET"`, `"POST"`, `"PUT"`, `"DELETE"`, etc.). All routes use exact path matching.
+
+Handler signature:
 
 ```rust
-Response::ok("body".to_string())          // 200
-Response::no_content()                    // 204
-Response::unauthorized()                  // 401
-Response::not_found()                     // 404
-Response::internal_server_error("msg")    // 500
+fn handler(ctx: &mut C, req: Request) -> Result<Response, HttpError>
 ```
 
-Implement `IntoResponse` on your own error types to integrate with `Result<T, E>` return values:
+The server returns `404` when no route matches the path and `405` when the path matches but the method does not.
+
+## Request
 
 ```rust
-use http::{IntoResponse, Response};
+pub struct Request {
+    pub method: String,
+    pub path: String,
+    pub headers: HashMap<String, String>,
+    pub body: Option<Vec<u8>>,
+}
+```
 
-enum AppError {
-    NotFound,
-    Internal(String),
+Header keys are normalized to lowercase. The body is populated from the `Content-Length` header; if absent, `body` is `None`.
+
+## Response
+
+Shorthand constructors:
+
+```rust
+Response::ok(body)                    // 200
+Response::created(body)               // 201
+Response::no_content()                // 204
+Response::bad_request(body)           // 400
+Response::unauthorized()              // 401
+Response::forbidden(body)             // 403
+Response::not_found(body)             // 404
+Response::internal_server_error(body) // 500
+```
+
+Builder-style for custom status codes or headers:
+
+```rust
+Response::new()
+    .status_code(202)
+    .header("X-Request-Id", "abc123")
+    .body("accepted")
+```
+
+The `body` argument can be a `String`, `&str`, `Html(...)`, or `Json(...)`.
+
+## JSON
+
+Implement `IntoJson` to serialize a type as a response body:
+
+```rust
+use http::{HttpError, IntoJson, Json, JsonValue, Request, Response, Route};
+
+struct Point { x: f64, y: f64 }
+
+impl IntoJson for Point {
+    fn into_json(self) -> JsonValue {
+        JsonValue::JsonObject(vec![
+            ("x".into(), JsonValue::JsonFloat(self.x)),
+            ("y".into(), JsonValue::JsonFloat(self.y)),
+        ])
+    }
 }
 
-impl IntoResponse for AppError {
-    fn to_response(self) -> Response {
-        match self {
-            Self::NotFound => Response::NotFound,
-            Self::Internal(msg) => Response::InternalServerError(msg),
-        }
+fn get_point(_: &mut (), _: Request) -> Result<Response, HttpError> {
+    Ok(Response::ok(Json(Point { x: 1.0, y: 2.0 })))
+}
+```
+
+`JsonValue` variants: `JsonNull`, `JsonBool(bool)`, `JsonChar(char)`, `JsonUint(u64)`, `JsonInt(i64)`, `JsonFloat(f64)`, `JsonString(String)`, `JsonList(Vec<JsonValue>)`, `JsonObject(Vec<(String, JsonValue)>)`.
+
+Parsing incoming JSON from a request body is not yet implemented.
+
+## HTML
+
+```rust
+use http::Html;
+
+fn index(_: &mut (), _: Request) -> Result<Response, HttpError> {
+    Ok(Response::ok(Html(include_str!("index.html").to_string())))
+}
+```
+
+## Errors
+
+`HttpError::new(status_code, detail)` is the standard error type. Any handler can return it; the server automatically converts it to a JSON response:
+
+```json
+{"detail": "error message here"}
+```
+
+## Middleware
+
+Middleware intercepts a request before it reaches the handler. It receives `&mut C` and `Request` and either returns a (possibly modified) `Request` to continue the chain, or an `Err(HttpError)` to short-circuit.
+
+```rust
+use http::{HttpError, Middleware, Request};
+
+fn auth(_: &mut Ctx, req: Request) -> Result<Request, HttpError> {
+    match req.headers.get("x-api-key") {
+        Some(k) if k == "secret" => Ok(req),
+        _ => Err(HttpError::new(401, "Invalid API key")),
     }
 }
 ```
 
+Register with `"*"` to apply globally or an exact path to apply only to that route:
+
+```rust
+Server::new("localhost:8080", Ctx())
+    .middleware(Middleware::new("*", auth))
+    .route(Route::new("GET", "/", index))
+    .run();
+```
+
+Middleware runs in registration order.
+
 ## Examples
 
-- `examples/counter/` — stateful counter with an HTML UI
-- `examples/middleware/` — API-key auth middleware applied globally
-- `examples/poll/` — multi-option poll with live vote totals
-- `examples/simple/` — minimal hello-world setup
-- `examples/ums/` — user management system demonstrating `FromRequest` on a custom type
-
-Run any example:
+- `examples/simple/` — minimal single-route server
+- `examples/counter/` — stateful counter with an HTML UI and JSON responses
+- `examples/json/` — nested struct serialization via `IntoJson`
+- `examples/middleware/` — global API-key auth middleware
+- `examples/poll/` — multi-option poll with live vote totals and an HTML UI
 
 ```
+cargo run --example simple
 cargo run --example counter
+cargo run --example json
 cargo run --example middleware
 cargo run --example poll
-cargo run --example simple
-cargo run --example ums
 ```
-
----
-
-## Requirements
-
-Tasks marked **[done]** are already implemented. Everything else is the roadmap.
-
-### Core server
-
-- [x] Bind TCP listener and accept connections
-- [x] Parse HTTP request line (method, path, version)
-- [x] Parse request body
-- [x] Dispatch to matched route handler
-- [x] Write HTTP response bytes
-- [x] Generic context type `C` shared across all handlers
-- [ ] Graceful shutdown on SIGINT / SIGTERM
-- [ ] Recover from handler panics without killing the server (catch_unwind)
-- [x] Replace all `unwrap` / `expect` with proper error propagation; log and return 500 instead of crashing
-
-### Routing
-
-- [x] Exact method + path matching
-- [x] Trait-based handler wrappers (`FromRequest` / `ToResponse`)
-- [ ] Dynamic path segments — `/users/:id` extractable in `FromRequest`
-- [ ] Query string access — `?foo=bar` extractable in `FromRequest`
-- [x] Automatic 404 response when no route matches (currently silently drops)
-- [x] Automatic 405 response when path matches but method does not
-
-### Request
-
-- [x] Method and path as `&str`
-- [x] Raw body as `String`
-- [x] `FromRequest` impl for `Request` (pass-through), `()` (no body needed)
-- [x] Expose request headers as a parsed map (at minimum `Content-Type`, `Content-Length`, `Authorization`)
-- [x] Honor `Content-Length` header to read the correct number of body bytes (current 4 KB buffer silently truncates larger bodies)
-- [ ] `FromRequest` impl for `String` (raw body string without wrapping in Request)
-
-### Response
-
-- [x] `Response` enum variants: `Ok(String)`, `NoContent`, `Unauthorized`, `NotFound`, `InternalServerError(String)`
-- [x] `IntoResponse` for `()` → 204, `&str` / `String` → 200, `Result<T,E>` delegates to inner types
-- [ ] Add variants: `Created(String)`, `BadRequest(String)`, `Forbidden`, `Conflict(String)`, `UnprocessableEntity(String)`
-- [ ] Set arbitrary response headers (at minimum `Content-Type`)
-- [ ] `Content-Type: application/json` response variant
-
-### Serialization — Pipe protocol
-
-- [x] Parse `key=value|key=value` body format into a `HashMap`
-- [x] `Pipe::get(key)` retrieves values
-- [ ] Escape mechanism so `|` and `=` can appear inside values without breaking the parse
-- [ ] Return a typed `ParseError` from `Pipe::parse` instead of silently producing a partial map
-- [ ] `Pipe::build` — construct a pipe-encoded string from a map (for writing responses)
-
-### Serialization — JSON
-
-- [ ] Naive JSON parser — recursive-descent over a `&str` with no external dependencies, producing a `JsonValue` enum (`Null`, `Bool(bool)`, `Number(f64)`, `Str(String)`, `Array(Vec<JsonValue>)`, `Object(HashMap<String, JsonValue>)`)
-- [ ] `JsonValue::get(key)` to index into objects by key
-- [ ] `JsonValue::index(n)` to index into arrays by position
-- [ ] Return a typed `ParseError` from the parser (unexpected token, unterminated string, trailing input, etc.)
-- [ ] `JsonValue::to_string()` — serialize a `JsonValue` back to a compact JSON string
-- [ ] `FromRequest` impl that deserializes the request body as JSON into a `JsonValue`
-
-### Middleware
-
-- [] Define a `Middleware` trait (or function signature) that receives a `Request` and returns a `Request` — allowing mutation, enrichment, or early rejection before the handler runs
-- [x] Middleware chain: multiple middleware run in order; any one can short-circuit with a `Response` instead of passing the request forward
-- [ ] Built-in middleware: request logging (method, path, response status, duration)
-- [ ] Built-in middleware: `Authorization` header extraction / rejection (returns 401 if missing or invalid)
-- [x] Attach middleware globally (all routes) or per-route
-
-### Testing
-
-- [ ] Unit tests for request parsing (malformed lines, missing body, oversized input)
-- [ ] Unit tests for `Pipe` (round-trip, escaping, missing keys)
-- [ ] Unit tests for response formatting (status line, headers, body)
-- [ ] Integration test that spins up a `Server` on a random port and makes real HTTP requests against it
-- [ ] Test that a panicking handler does not crash the server (requires panic recovery above)
-
-### Documentation
-
-- [ ] Rustdoc on all public types and traits (`Server`, `Route`, `Request`, `Response`, `Pipe`, `FromRequest`, `ToResponse`)
-- [ ] Crate-level doc comment in `lib.rs` with a minimal getting-started example
-- [ ] Document the single-threaded contract and the offload warning explicitly
-- [ ] `cargo doc --no-deps` produces no warnings
-
-### HTTPS / TLS
-
-- [ ] Optional TLS via `rustls` — enabled through a feature flag so plain HTTP builds have no extra dependencies
-- [ ] `Server::with_tls(addr, ctx, cert_path, key_path)` constructor that loads a PEM certificate and private key from disk
-- [ ] Serve HTTPS on a separate port alongside HTTP (e.g. 80 + 443), or exclusively over TLS
-- [ ] Automatic HTTP → HTTPS redirect when both ports are active
-- [ ] ALPN negotiation advertising `http/1.1`
-- [ ] Example: `examples/tls/` demonstrating a self-signed cert setup for local development
-
-### Polish
-
-- [ ] Replace all `println!` in handlers with a minimal structured logger (at minimum timestamps + level)
-- [ ] Expose server address after bind so the caller knows which port was assigned when `0` is passed
-- [ ] `cargo clippy -- -D warnings` passes clean
-- [ ] `cargo fmt --check` passes clean
-- [ ] Add a `benches/` harness using `criterion` for request throughput

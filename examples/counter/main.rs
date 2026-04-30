@@ -5,7 +5,9 @@ struct Context {
 }
 
 fn index(_: &mut Context, _: Request) -> Result<Response, HttpError> {
-    Ok(Response::ok(Html(include_str!("counter.html").to_string())))
+    Ok(Response::ok(Html::from_file(
+        "examples/counter/index.html",
+    )?))
 }
 
 struct Count {
