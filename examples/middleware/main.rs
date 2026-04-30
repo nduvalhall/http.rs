@@ -1,25 +1,23 @@
-use http::prelude::*;
+use http::{HttpError, Middleware, Request, Response, Route, Server};
 
 const API_KEY: &str = "secret";
 
-struct Context {}
+struct Context();
 
-fn auth(_: &mut Context, request: Request) -> Result<Request, Response> {
-    match request.get_header("x-api-key") {
+fn auth(_: &mut Context, request: Request) -> Result<Request, HttpError> {
+    match request.headers.get("x-api-key") {
         Some(key) if key == API_KEY => Ok(request),
-        _ => Err(Response::unauthorized()),
+        _ => Err(HttpError::new(401, "Incorrect API key provided")),
     }
 }
 
-fn index(_: &mut Context, _: Request) -> &'static str {
-    "Hello, world!"
+fn index(_: &mut Context, _: Request) -> Result<Response, HttpError> {
+    Ok(Response::ok("Hello, world!"))
 }
 
 fn main() {
-    let mut server = Server::new("localhost:8080", Context {});
-
-    server.add_middleware(Middleware::new("*", auth));
-    server.add_route(Route::get("/", index));
-
-    server.run();
+    Server::new("localhost:8080", Context())
+        .middleware(Middleware::new("*", auth))
+        .route(Route::new("GET", "/", index))
+        .run();
 }

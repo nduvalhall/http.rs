@@ -1,14 +1,14 @@
-use http::prelude::*;
+use http::{HttpError, Request, Response, Route, Server};
 
-fn index(_: &mut (), _: Request) -> Result<(), ()> {
+struct Ctx();
+
+fn index(_: &mut Ctx, _: Request) -> Result<Response, HttpError> {
     println!("index endpoint called");
-    Ok(())
+    Ok(Response::no_content())
 }
 
 fn main() {
-    let mut server = Server::new("localhost:8080", ());
-
-    server.add_route(Route::get("/", index));
-
-    server.run();
+    Server::new("localhost:8080", Ctx())
+        .route(Route::new("GET", "/", index))
+        .run();
 }

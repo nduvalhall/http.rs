@@ -1,119 +1,142 @@
 use std::{
     io::{Read, Write},
-    net::TcpListener,
+    net::{TcpListener, TcpStream},
 };
 
-use crate::{Middleware, Request, Response, Route};
+use crate::{HttpError, IntoResponse, Middleware, Request, Response, Route};
 
-pub struct Server<C: 'static> {
-    address: &'static str,
-    context: C,
-    middleware: Vec<Middleware<C>>,
+pub struct Server<C> {
+    addr: String,
+    ctx: C,
+    middlewares: Vec<Middleware<C>>,
     routes: Vec<Route<C>>,
 }
 
-impl<C: 'static> Server<C> {
-    pub fn new(address: &'static str, context: C) -> Self {
+impl<C> Server<C> {
+    pub fn new(addr: &str, ctx: C) -> Self {
         Self {
-            address,
-            context,
-            middleware: Vec::new(),
+            addr: addr.into(),
+            ctx,
+            middlewares: Vec::new(),
             routes: Vec::new(),
         }
     }
 
-    pub fn add_route(&mut self, route: Route<C>) {
-        self.routes.push(route);
+    pub fn route(self, route: Route<C>) -> Self {
+        let mut routes = self.routes;
+        routes.push(route);
+        Self { routes, ..self }
     }
 
-    pub fn add_middleware(&mut self, middleware: Middleware<C>) {
-        self.middleware.push(middleware);
+    pub fn middleware(self, middleware: Middleware<C>) -> Self {
+        let mut middlewares = self.middlewares;
+        middlewares.push(middleware);
+        Self {
+            middlewares,
+            ..self
+        }
     }
 
-    fn dispatch(&mut self, mut request: Request) -> Response {
-        for middleware in self.middleware.iter() {
-            let path = middleware.get_path();
-            if path == "*" || path == request.path {
-                request = match (middleware.get_handler())(&mut self.context, request) {
-                    Ok(req) => req,
-                    Err(response) => return response,
-                };
+    fn dispatch(&mut self, mut req: Request) -> Result<Response, HttpError> {
+        for middleware in self.middlewares.iter() {
+            let path = &middleware.path;
+            if path == "*" || path == &req.path {
+                req = middleware.call(&mut self.ctx, req)?
             }
         }
 
-        let path_routes: Vec<&Route<C>> = self
-            .routes
-            .iter()
-            .filter(|r| r.get_path() == request.path)
-            .collect();
+        let path_routes: Vec<&Route<C>> =
+            self.routes.iter().filter(|r| r.path == req.path).collect();
 
         if path_routes.is_empty() {
-            return Response::not_found();
+            return Err(HttpError::new(
+                404,
+                &format!("No endpoint found for {}", &req.path),
+            ));
         }
 
-        match path_routes
-            .iter()
-            .find(|&r| *r.get_method() == request.method)
-        {
-            Some(route) => (route.get_handler())(&mut self.context, request),
-            None => Response::method_not_allowed(),
+        match path_routes.iter().find(|&r| *r.method == req.method) {
+            Some(&route) => Ok(route.call(&mut self.ctx, req)?),
+            None => Err(HttpError::new(
+                405,
+                &format!(
+                    "No endpoint found for {} with method {}",
+                    req.path, req.method
+                ),
+            )),
         }
     }
 
-    fn send_error_response(stream: &mut impl Write) {
-        let _ = stream.write_all(&Response::internal_server_error("").to_bytes());
+    fn send_error(&self, stream: &mut impl Write) {
+        stream
+            .write_all(
+                &HttpError::new(500, "Failed to parse request")
+                    .into_response()
+                    .into_bytes()
+                    .unwrap_or_else(|_| panic!("Failed to send error")),
+            )
+            .unwrap_or_else(|_| panic!("Failed to write error to stream"));
+    }
+
+    fn handle_connection(&mut self, mut stream: TcpStream) {
+        if let Ok(addr) = stream.peer_addr() {
+            println!("Connection from {}", addr);
+        }
+
+        let mut buf = [0u8; 4096];
+        let n = match stream.read(&mut buf) {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("Failed to read from stream: {}", e);
+                self.send_error(&mut stream);
+                return;
+            }
+        };
+
+        if n == 0 {
+            return;
+        }
+
+        let request = match Request::from_bytes(&buf[0..n]) {
+            Some(r) => r,
+            None => {
+                eprintln!("Failed to parse request");
+                self.send_error(&mut stream);
+                return;
+            }
+        };
+
+        let response = self.dispatch(request).unwrap_or_else(|e| e.into_response());
+
+        match response.into_bytes() {
+            Ok(bytes) => {
+                if let Err(e) = stream.write_all(&bytes) {
+                    eprintln!("Failed to write response: {}", e);
+                    return;
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to serialize response: {}", e);
+                self.send_error(&mut stream);
+                return;
+            }
+        }
+
+        if let Err(e) = stream.shutdown(std::net::Shutdown::Both) {
+            eprintln!("Failed to shut down stream: {}", e);
+        }
     }
 
     pub fn run(mut self) {
-        let listener = TcpListener::bind(self.address)
-            .unwrap_or_else(|e| panic!("Failed to bind to {}: {}", self.address, e));
+        let listener = TcpListener::bind(&self.addr)
+            .unwrap_or_else(|e| panic!("Failed to bind to {}: {}", &self.addr, e));
 
-        println!("Listening on {}", self.address);
+        println!("Listening on {}", self.addr);
 
         for conn in listener.incoming() {
-            let mut stream = match conn {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("Connection error: {}", e);
-                    continue;
-                }
-            };
-
-            if let Ok(addr) = stream.peer_addr() {
-                println!("Connection from {}", addr);
-            }
-
-            let mut buf = [0u8; 4096];
-            let n = match stream.read(&mut buf) {
-                Ok(n) => n,
-                Err(e) => {
-                    eprintln!("Failed to read from stream: {}", e);
-                    Self::send_error_response(&mut stream);
-                    continue;
-                }
-            };
-
-            if n == 0 {
-                continue;
-            }
-
-            let request = match Request::from_bytes(&buf[0..n]) {
-                Some(r) => r,
-                None => {
-                    eprintln!("Failed to parse request");
-                    Self::send_error_response(&mut stream);
-                    continue;
-                }
-            };
-
-            let response = self.dispatch(request);
-            if let Err(e) = stream.write_all(&response.to_bytes()) {
-                eprintln!("Failed to write response: {}", e);
-                continue;
-            }
-
-            if let Err(e) = stream.shutdown(std::net::Shutdown::Both) {
-                eprintln!("Failed to shut down stream: {}", e);
+            match conn {
+                Ok(stream) => self.handle_connection(stream),
+                Err(e) => eprintln!("Connection error: {}", e),
             }
         }
     }

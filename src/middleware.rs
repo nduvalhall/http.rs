@@ -1,32 +1,21 @@
-use crate::{Request, Response};
+use crate::{HttpError, Request};
+
+type Handler<C> = fn(&mut C, Request) -> Result<Request, HttpError>;
 
 pub struct Middleware<C> {
-    path: &'static str,
-    handler: Box<dyn Fn(&mut C, Request) -> Result<Request, Response>>,
+    pub path: String,
+    handler: Handler<C>,
 }
 
-impl<C: 'static> Middleware<C> {
-    fn wrap(
-        f: fn(&mut C, Request) -> Result<Request, Response>,
-    ) -> Box<dyn Fn(&mut C, Request) -> Result<Request, Response>> {
-        Box::new(move |context, request| f(context, request))
-    }
-
-    pub fn new(
-        path: &'static str,
-        handler: fn(&mut C, Request) -> Result<Request, Response>,
-    ) -> Self {
-        Middleware {
-            path,
-            handler: Self::wrap(handler),
+impl<C> Middleware<C> {
+    pub fn new(path: &str, handler: Handler<C>) -> Self {
+        Self {
+            path: path.into(),
+            handler,
         }
     }
 
-    pub fn get_path(&self) -> &str {
-        &self.path
-    }
-
-    pub fn get_handler(&self) -> &Box<dyn Fn(&mut C, Request) -> Result<Request, Response>> {
-        &self.handler
+    pub fn call(&self, ctx: &mut C, req: Request) -> Result<Request, HttpError> {
+        (self.handler)(ctx, req)
     }
 }

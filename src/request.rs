@@ -1,13 +1,12 @@
-use crate::{Method, Response};
-
 use std::collections::HashMap;
 
-#[derive(Debug)]
+use crate::HttpError;
+
 pub struct Request {
-    pub method: Method,
+    pub method: String,
     pub path: String,
-    pub body: String,
-    headers: HashMap<String, String>,
+    pub headers: HashMap<String, String>,
+    pub body: Option<Vec<u8>>,
 }
 
 impl Request {
@@ -34,14 +33,13 @@ impl Request {
             .get("content-length")
             .and_then(|v| v.parse::<usize>().ok())
         {
-            let body_bytes = bytes.get(body_start..body_start + len)?;
-            std::str::from_utf8(body_bytes).ok()?.to_string()
+            Some(bytes.get(body_start..body_start + len)?.into())
         } else {
-            String::new()
+            None
         };
 
-        let req = Request {
-            method: Method::from_str(&method),
+        let req = Self {
+            method: method.into(),
             path,
             body,
             headers,
@@ -49,24 +47,12 @@ impl Request {
 
         Some(req)
     }
-
-    pub fn get_header(&self, name: &str) -> Option<&str> {
-        self.headers.get(&name.to_lowercase()).map(|v| v.as_str())
-    }
 }
 
 pub trait FromRequest: Sized {
-    fn from_request(request: Request) -> Result<Self, Response>;
+    fn from_request(request: &Request) -> Result<Self, HttpError>;
 }
 
-impl FromRequest for Request {
-    fn from_request(request: Request) -> Result<Self, Response> {
-        Ok(request)
-    }
-}
-
-impl FromRequest for () {
-    fn from_request(_: Request) -> Result<Self, Response> {
-        Ok(())
-    }
+pub trait FromBytes: Sized {
+    fn from_bytes(bytes: Vec<u8>) -> Result<Self, HttpError>;
 }

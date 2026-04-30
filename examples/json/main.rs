@@ -1,4 +1,4 @@
-use http::prelude::*;
+use http::{HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server};
 
 struct Car {
     brand: String,
@@ -8,12 +8,12 @@ struct Car {
 }
 
 impl IntoJson for Car {
-    fn to_json(self) -> Json {
-        Json::JsonObject(vec![
-            ("brand".into(), Json::JsonString(self.brand)),
-            ("model".into(), Json::JsonString(self.model)),
-            ("doors".into(), Json::JsonUint(self.doors.into())),
-            ("year".into(), Json::JsonUint(self.year.into())),
+    fn into_json(self) -> JsonValue {
+        JsonValue::JsonObject(vec![
+            ("brand".into(), JsonValue::JsonString(self.brand)),
+            ("model".into(), JsonValue::JsonString(self.model)),
+            ("doors".into(), JsonValue::JsonUint(self.doors.into())),
+            ("year".into(), JsonValue::JsonUint(self.year.into())),
         ])
     }
 }
@@ -27,41 +27,34 @@ struct Person {
 }
 
 impl IntoJson for Person {
-    fn to_json(self) -> http::Json {
-        Json::JsonObject(vec![
-            ("name".into(), Json::JsonString(self.name)),
-            ("age".into(), Json::JsonUint(self.age)),
-            ("gender".into(), Json::JsonString(self.gender)),
-            ("occupation".into(), Json::JsonString(self.occupation)),
-            ("car".into(), self.car.to_json()),
+    fn into_json(self) -> JsonValue {
+        JsonValue::JsonObject(vec![
+            ("name".into(), JsonValue::JsonString(self.name)),
+            ("age".into(), JsonValue::JsonUint(self.age)),
+            ("gender".into(), JsonValue::JsonString(self.gender)),
+            ("occupation".into(), JsonValue::JsonString(self.occupation)),
+            ("car".into(), self.car.into_json()),
         ])
     }
 }
 
-fn get_person(_: &mut (), _: Request) -> Response {
-    Response::ok(
-        Person {
-            name: "James Smith".into(),
-            age: 30,
-            gender: "Male".into(),
-            occupation: "Blacksmith".into(),
-            car: Car {
-                brand: "Ford".into(),
-                model: "Fiesta".into(),
-                doors: 5,
-                year: 2007,
-            },
-        }
-        .to_json()
-        .to_string()
-        .as_str(),
-    )
+fn get_person(_: &mut (), _: Request) -> Result<Response, HttpError> {
+    Ok(Response::ok(Json(Person {
+        name: "James Smith".into(),
+        age: 30,
+        gender: "Male".into(),
+        occupation: "Blacksmith".into(),
+        car: Car {
+            brand: "Ford".into(),
+            model: "Fiesta".into(),
+            doors: 5,
+            year: 2007,
+        },
+    })))
 }
 
 fn main() {
-    let mut server = Server::new("localhost:8080", ());
-
-    server.add_route(Route::get("/", get_person));
-
-    server.run();
+    Server::new("localhost:8080", ())
+        .route(Route::new("GET", "/", get_person))
+        .run();
 }

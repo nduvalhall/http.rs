@@ -1,7 +1,6 @@
-use std::fmt;
+use crate::{ContentType, FromBytes, HttpError, IntoBytes};
 
-#[derive(Debug)]
-pub enum Json {
+pub enum JsonValue {
     JsonNull,
     JsonBool(bool),
     JsonChar(char),
@@ -9,21 +8,21 @@ pub enum Json {
     JsonInt(i64),
     JsonFloat(f64),
     JsonString(String),
-    JsonList(Vec<Json>),
-    JsonObject(Vec<(String, Json)>),
+    JsonList(Vec<JsonValue>),
+    JsonObject(Vec<(String, JsonValue)>),
 }
 
-impl Json {
+impl JsonValue {
     pub fn to_string(&self) -> String {
         match self {
-            Json::JsonNull => "null".to_string(),
-            Json::JsonBool(b) => b.to_string(),
-            Json::JsonChar(c) => c.to_string(),
-            Json::JsonUint(u) => u.to_string(),
-            Json::JsonInt(i) => i.to_string(),
-            Json::JsonFloat(f) => f.to_string(),
-            Json::JsonString(s) => format!("\"{}\"", s),
-            Json::JsonList(v) => {
+            JsonValue::JsonNull => "null".to_string(),
+            JsonValue::JsonBool(b) => b.to_string(),
+            JsonValue::JsonChar(c) => c.to_string(),
+            JsonValue::JsonUint(u) => u.to_string(),
+            JsonValue::JsonInt(i) => i.to_string(),
+            JsonValue::JsonFloat(f) => f.to_string(),
+            JsonValue::JsonString(s) => format!("\"{}\"", s),
+            JsonValue::JsonList(v) => {
                 let mut res = String::from("[");
                 let mut iter = v.iter().peekable();
 
@@ -42,7 +41,7 @@ impl Json {
                 res.push(']');
                 res
             }
-            Json::JsonObject(fields) => {
+            JsonValue::JsonObject(fields) => {
                 let mut res = String::from("{");
                 let mut iter = fields.iter().peekable();
 
@@ -65,12 +64,49 @@ impl Json {
     }
 }
 
-impl fmt::Display for Json {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_string())
-    }
+pub trait FromJson {
+    fn from_json(json: JsonValue) -> Self;
 }
 
 pub trait IntoJson {
-    fn to_json(self) -> Json;
+    fn into_json(self) -> JsonValue;
+}
+
+impl FromBytes for JsonValue {
+    fn from_bytes(_: Vec<u8>) -> Result<Self, HttpError> {
+        todo!()
+    }
+}
+
+impl IntoBytes for JsonValue {
+    fn into_bytes(self) -> Vec<u8> {
+        self.to_string().into_bytes()
+    }
+}
+
+pub struct Json<T>(pub T);
+
+impl<T: FromJson> FromBytes for Json<T> {
+    fn from_bytes(bytes: Vec<u8>) -> Result<Self, HttpError> {
+        Ok(Json(T::from_json(JsonValue::from_bytes(bytes)?)))
+    }
+}
+
+impl<T: IntoJson> IntoBytes for Json<T> {
+    fn into_bytes(self) -> Vec<u8> {
+        let Json(body) = self;
+        body.into_json().into_bytes()
+    }
+}
+
+impl<T> ContentType for Json<T> {
+    fn content_type(&self) -> &'static str {
+        "application/json; charset=utf-8"
+    }
+}
+
+impl IntoJson for String {
+    fn into_json(self) -> JsonValue {
+        JsonValue::JsonString(self)
+    }
 }

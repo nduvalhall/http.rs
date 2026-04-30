@@ -1,4 +1,4 @@
-use http::prelude::*;
+use http::{Html, HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server};
 
 struct Poll {
     yes: u32,
@@ -6,47 +6,58 @@ struct Poll {
     maybe: u32,
 }
 
-fn index(_: &mut Poll, _: Request) -> Response {
-    Response::ok(&include_str!("poll.html").to_string())
+impl Default for Poll {
+    fn default() -> Self {
+        Self {
+            yes: 0,
+            no: 0,
+            maybe: 0,
+        }
+    }
 }
 
-fn get_votes(poll: &mut Poll, _: Request) -> Response {
-    let results = format!(
-        r#"{{"yes":{},"no":{},"maybe":{}}}"#,
-        poll.yes, poll.no, poll.maybe
-    );
-    Response::ok(&results)
+impl IntoJson for &mut Poll {
+    fn into_json(self) -> http::JsonValue {
+        JsonValue::JsonObject(vec![
+            ("yes".into(), JsonValue::JsonUint(self.yes.into())),
+            ("no".into(), JsonValue::JsonUint(self.no.into())),
+            ("maybe".into(), JsonValue::JsonUint(self.maybe.into())),
+        ])
+    }
 }
 
-fn vote_yes(poll: &mut Poll, _: Request) {
+fn index(_: &mut Poll, _: Request) -> Result<Response, HttpError> {
+    Ok(Response::ok(Html(include_str!("poll.html").to_string())))
+}
+
+fn get_votes(poll: &mut Poll, _: Request) -> Result<Response, HttpError> {
+    Ok(Response::ok(Json(poll)))
+}
+
+fn vote_yes(poll: &mut Poll, _: Request) -> Result<Response, HttpError> {
     poll.yes += 1;
     println!("yes: {}", poll.yes);
+    Ok(Response::no_content())
 }
 
-fn vote_no(poll: &mut Poll, _: Request) {
+fn vote_no(poll: &mut Poll, _: Request) -> Result<Response, HttpError> {
     poll.no += 1;
     println!("no: {}", poll.no);
+    Ok(Response::no_content())
 }
 
-fn vote_maybe(poll: &mut Poll, _: Request) {
+fn vote_maybe(poll: &mut Poll, _: Request) -> Result<Response, HttpError> {
     poll.maybe += 1;
     println!("maybe: {}", poll.maybe);
+    Ok(Response::no_content())
 }
 
 fn main() {
-    let poll = Poll {
-        yes: 0,
-        no: 0,
-        maybe: 0,
-    };
-
-    let mut server = Server::new("0.0.0.0:8086", poll);
-
-    server.add_route(Route::get("/", index));
-    server.add_route(Route::get("/votes", get_votes));
-    server.add_route(Route::post("/vote/yes", vote_yes));
-    server.add_route(Route::post("/vote/no", vote_no));
-    server.add_route(Route::post("/vote/maybe", vote_maybe));
-
-    server.run();
+    Server::new("0.0.0.0:8080", Poll::default())
+        .route(Route::new("GET", "/", index))
+        .route(Route::new("GET", "/votes", get_votes))
+        .route(Route::new("POST", "/vote/yes", vote_yes))
+        .route(Route::new("POST", "/vote/no", vote_no))
+        .route(Route::new("POST", "/vote/maybe", vote_maybe))
+        .run();
 }
