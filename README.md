@@ -1,4 +1,4 @@
-# http
+# amoeba
 
 A lightweight, single-threaded HTTP API framework for Rust. Attach handlers to routes and carry state through a typed context.
 
@@ -91,7 +91,7 @@ The `body` argument can be a `String`, `&str`, `Html(...)`, or `Json(...)`.
 Implement `IntoJson` to serialize a type as a response body:
 
 ```rust
-use amoeba::{HttpError, IntoJson, Json, JsonValue, Request, Response, Route};
+use amoeba::{FromBytes, FromJson, HttpError, IntoJson, Json, JsonValue, Request, Response, Route};
 
 struct Point { x: f64, y: f64 }
 
@@ -104,14 +104,28 @@ impl IntoJson for Point {
     }
 }
 
+impl FromJson for Point {
+    fn from_json(json: JsonValue) -> Self {
+        let JsonValue::JsonObject(mut fields) = json else { panic!("expected object") };
+        let x = fields.remove(fields.iter().position(|(k, _)| k == "x").unwrap()).1;
+        let y = fields.remove(fields.iter().position(|(k, _)| k == "y").unwrap()).1;
+        let (JsonValue::JsonFloat(x), JsonValue::JsonFloat(y)) = (x, y) else { panic!("expected floats") };
+        Point { x, y }
+    }
+}
+
 fn get_point(_: &mut (), _: Request) -> Result<Response, HttpError> {
     Ok(Response::ok(Json(Point { x: 1.0, y: 2.0 })))
+}
+
+fn post_point(_: &mut (), req: Request) -> Result<Response, HttpError> {
+    let body = req.body.ok_or_else(|| HttpError::new(400, "missing body"))?;
+    let Json(point) = Json::<Point>::from_bytes(body)?;
+    Ok(Response::ok(Json(point)))
 }
 ```
 
 `JsonValue` variants: `JsonNull`, `JsonBool(bool)`, `JsonChar(char)`, `JsonUint(u64)`, `JsonInt(i64)`, `JsonFloat(f64)`, `JsonString(String)`, `JsonList(Vec<JsonValue>)`, `JsonObject(Vec<(String, JsonValue)>)`.
-
-Parsing incoming JSON from a request body is not yet implemented.
 
 ## HTML
 
