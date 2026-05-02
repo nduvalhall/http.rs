@@ -1,4 +1,4 @@
-use http::{Html, HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server};
+use amoeba::{Html, HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server};
 
 struct Context {
     counter: i32,

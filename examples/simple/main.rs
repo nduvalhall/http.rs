@@ -1,4 +1,4 @@
-use http::{HttpError, Request, Response, Route, Server};
+use amoeba::{HttpError, Request, Response, Route, Server};
 
 struct Ctx();
 

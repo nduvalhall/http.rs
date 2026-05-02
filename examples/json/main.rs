@@ -1,4 +1,4 @@
-use http::{
+use amoeba::{
     FromBytes, FromJson, HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server,
 };
 

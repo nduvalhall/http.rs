@@ -1,4 +1,4 @@
-use http::{HttpError, Middleware, Request, Response, Route, Server};
+use amoeba::{HttpError, Middleware, Request, Response, Route, Server};
 
 const API_KEY: &str = "secret";
 

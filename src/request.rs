@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Read, net::TcpStream};
 
-use crate::{ContentType, HttpError};
+use crate::HttpError;
 
 pub struct Request {
     pub method: String,

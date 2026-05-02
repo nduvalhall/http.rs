@@ -1,4 +1,4 @@
-use http::{Html, HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server};
+use amoeba::{Html, HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server};
 
 struct Poll {
     yes: u32,
@@ -17,7 +17,7 @@ impl Default for Poll {
 }
 
 impl IntoJson for &mut Poll {
-    fn into_json(self) -> http::JsonValue {
+    fn into_json(self) -> JsonValue {
         JsonValue::JsonObject(vec![
             ("yes".into(), JsonValue::JsonUint(self.yes.into())),
             ("no".into(), JsonValue::JsonUint(self.no.into())),

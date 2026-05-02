@@ -12,7 +12,7 @@ A lightweight, single-threaded HTTP API framework for Rust. Attach handlers to r
 ## Quick start
 
 ```rust
-use http::{HttpError, Request, Response, Route, Server};
+use amoeba::{HttpError, Request, Response, Route, Server};
 
 struct Ctx {
     count: i32,
@@ -91,7 +91,7 @@ The `body` argument can be a `String`, `&str`, `Html(...)`, or `Json(...)`.
 Implement `IntoJson` to serialize a type as a response body:
 
 ```rust
-use http::{HttpError, IntoJson, Json, JsonValue, Request, Response, Route};
+use amoeba::{HttpError, IntoJson, Json, JsonValue, Request, Response, Route};
 
 struct Point { x: f64, y: f64 }
 
@@ -116,7 +116,7 @@ Parsing incoming JSON from a request body is not yet implemented.
 ## HTML
 
 ```rust
-use http::Html;
+use amoeba::Html;
 
 fn index(_: &mut (), _: Request) -> Result<Response, HttpError> {
     Ok(Response::ok(Html(include_str!("index.html").to_string())))
@@ -128,7 +128,7 @@ fn index(_: &mut (), _: Request) -> Result<Response, HttpError> {
 `HttpError::new(status_code, detail)` is the standard error type. Any handler can return it; the server automatically converts it to a JSON response:
 
 ```json
-{"detail": "error message here"}
+{ "detail": "error message here" }
 ```
 
 ## Middleware
@@ -136,7 +136,7 @@ fn index(_: &mut (), _: Request) -> Result<Response, HttpError> {
 Middleware intercepts a request before it reaches the handler. It receives `&mut C` and `Request` and either returns a (possibly modified) `Request` to continue the chain, or an `Err(HttpError)` to short-circuit.
 
 ```rust
-use http::{HttpError, Middleware, Request};
+use amoeba::{HttpError, Middleware, Request};
 
 fn auth(_: &mut Ctx, req: Request) -> Result<Request, HttpError> {
     match req.headers.get("x-api-key") {
