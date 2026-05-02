@@ -12,7 +12,7 @@ pub fn parse(content: &str) -> Result<JsonValue, String> {
     parse_value(&mut iter)
 }
 
-fn parse_value(tokens: &mut Tokens) -> Result<JsonValue, String> {
+fn parse_value(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
     let Some(token) = tokens.next() else {
         return Err("unexpected end of input".into());
     };
@@ -49,8 +49,8 @@ fn parse_number(s: &str) -> Result<JsonValue, String> {
     }
 }
 
-fn parse_object(tokens: &mut Tokens) -> Result<JsonValue, String> {
-    let mut fields = Vec::new();
+fn parse_object(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
+    let mut fields: Vec<(String, JsonValue)> = Vec::new();
 
     loop {
         match tokens.peek() {
@@ -86,7 +86,7 @@ fn parse_object(tokens: &mut Tokens) -> Result<JsonValue, String> {
     Ok(JsonValue::JsonObject(fields))
 }
 
-fn parse_array(tokens: &mut Tokens) -> Result<JsonValue, String> {
+fn parse_array(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
     let mut items = Vec::new();
 
     loop {

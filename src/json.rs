@@ -1,7 +1,7 @@
 use crate::{ContentType, FromBytes, HttpError, IntoBytes};
 
 mod lexer;
-pub mod parser;
+mod parser;
 
 pub enum JsonValue {
     JsonNull,

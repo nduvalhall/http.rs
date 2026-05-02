@@ -16,10 +16,7 @@ struct Count {
 
 impl IntoJson for Count {
     fn into_json(self) -> JsonValue {
-        JsonValue::JsonObject(vec![(
-            "count".to_string(),
-            JsonValue::JsonInt(self.count.into()),
-        )])
+        JsonValue::JsonObject(vec![("count".into(), JsonValue::JsonInt(self.count.into()))])
     }
 }
 

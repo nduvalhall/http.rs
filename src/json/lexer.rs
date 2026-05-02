@@ -17,7 +17,7 @@ pub enum Token {
     Eof,
 }
 
-fn collect_number(first: char, iter: &mut Peekable<Chars>) -> Token {
+fn collect_number(first: char, iter: &mut Peekable<Chars<'_>>) -> Token {
     let mut res = String::new();
     res.push(first);
 
@@ -48,7 +48,7 @@ fn collect_number(first: char, iter: &mut Peekable<Chars>) -> Token {
     Token::Number(res)
 }
 
-fn collect_string(iter: &mut Peekable<Chars>) -> Token {
+fn collect_string(iter: &mut Peekable<Chars<'_>>) -> Token {
     let mut res = String::new();
 
     loop {
@@ -80,7 +80,7 @@ fn collect_string(iter: &mut Peekable<Chars>) -> Token {
     }
 }
 
-fn collect_ident(first: char, iter: &mut Peekable<Chars>) -> Token {
+fn collect_ident(first: char, iter: &mut Peekable<Chars<'_>>) -> Token {
     let mut res = String::new();
     res.push(first);
 
