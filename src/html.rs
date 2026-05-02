@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use crate::{ContentType, FromBytes, HttpError, IntoBytes};
+use crate::{ContentType, HttpError, IntoBytes};
 
 pub struct Html(pub String);
 
@@ -20,12 +20,6 @@ impl Html {
         };
 
         Ok(Html(html))
-    }
-}
-
-impl FromBytes for Html {
-    fn from_bytes(_: Vec<u8>) -> Result<Self, HttpError> {
-        todo!()
     }
 }
 

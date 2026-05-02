@@ -1,5 +1,5 @@
 use std::{
-    io::{Read, Write},
+    io::Write,
     net::{TcpListener, TcpStream},
 };
 
@@ -67,10 +67,10 @@ impl<C> Server<C> {
         }
     }
 
-    fn send_error(&self, stream: &mut impl Write) {
+    fn send_error(&self, status_code: u16, stream: &mut impl Write) {
         stream
             .write_all(
-                &HttpError::new(500, "Failed to parse request")
+                &HttpError::new(status_code, "Failed to parse request")
                     .into_response()
                     .into_bytes()
                     .unwrap_or_else(|_| panic!("Failed to send error")),
@@ -78,53 +78,42 @@ impl<C> Server<C> {
             .unwrap_or_else(|_| panic!("Failed to write error to stream"));
     }
 
-    fn handle_connection(&mut self, mut stream: TcpStream) {
+    fn handle_connection(&mut self, stream: TcpStream) {
         if let Ok(addr) = stream.peer_addr() {
             println!("Connection from {}", addr);
         }
 
-        let mut buf = [0u8; 4096];
-        let n = match stream.read(&mut buf) {
-            Ok(n) => n,
+        let (mut stream, request) = Request::from_stream(stream);
+        let request = match request {
+            Ok(r) => r,
             Err(e) => {
-                eprintln!("Failed to read from stream: {}", e);
-                self.send_error(&mut stream);
-                return;
-            }
-        };
-
-        if n == 0 {
-            return;
-        }
-
-        let request = match Request::from_bytes(&buf[0..n]) {
-            Some(r) => r,
-            None => {
-                eprintln!("Failed to parse request");
-                self.send_error(&mut stream);
+                let Ok(b) = e.into_response().into_bytes() else {
+                    self.send_error(500, &mut stream);
+                    return;
+                };
+                stream.write_all(&b).ok();
                 return;
             }
         };
 
         let response = self.dispatch(request).unwrap_or_else(|e| e.into_response());
 
-        match response.into_bytes() {
-            Ok(bytes) => {
-                if let Err(e) = stream.write_all(&bytes) {
-                    eprintln!("Failed to write response: {}", e);
-                    return;
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to serialize response: {}", e);
-                self.send_error(&mut stream);
-                return;
-            }
-        }
+        let Ok(bytes) = response.into_bytes() else {
+            self.send_error(422, &mut stream);
+            return;
+        };
 
-        if let Err(e) = stream.shutdown(std::net::Shutdown::Both) {
-            eprintln!("Failed to shut down stream: {}", e);
-        }
+        stream.write_all(&bytes).unwrap_or_else(|_| {
+            eprintln!("Failed to write response");
+            return;
+        });
+
+        stream
+            .shutdown(std::net::Shutdown::Both)
+            .unwrap_or_else(|_| {
+                eprintln!("Failed to shut down stream");
+                return;
+            });
     }
 
     pub fn run(mut self) {

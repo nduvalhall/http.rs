@@ -1,5 +1,8 @@
 use crate::{ContentType, FromBytes, HttpError, IntoBytes};
 
+mod lexer;
+pub mod parser;
+
 pub enum JsonValue {
     JsonNull,
     JsonBool(bool),
@@ -17,7 +20,7 @@ impl JsonValue {
         match self {
             JsonValue::JsonNull => "null".to_string(),
             JsonValue::JsonBool(b) => b.to_string(),
-            JsonValue::JsonChar(c) => c.to_string(),
+            JsonValue::JsonChar(c) => format!("\"{}\"", c),
             JsonValue::JsonUint(u) => u.to_string(),
             JsonValue::JsonInt(i) => i.to_string(),
             JsonValue::JsonFloat(f) => f.to_string(),
@@ -73,8 +76,11 @@ pub trait IntoJson {
 }
 
 impl FromBytes for JsonValue {
-    fn from_bytes(_: Vec<u8>) -> Result<Self, HttpError> {
-        todo!()
+    fn from_bytes(bytes: Vec<u8>) -> Result<Self, HttpError> {
+        let Ok(s) = String::from_utf8(bytes) else {
+            return Err(HttpError::new(400, "request body is not valid utf-8"));
+        };
+        parser::parse(&s).map_err(|e| HttpError::new(400, &e))
     }
 }
 
