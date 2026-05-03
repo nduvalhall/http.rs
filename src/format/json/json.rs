@@ -1,13 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    IntoError,
-    format::json::parser,
-    http::{
-        error::Error,
-        request::{FromRequest, Request},
-    },
-};
+use crate::{Error, IntoError, Request, format::json::parser};
 
 #[derive(Debug)]
 pub struct JsonObject(pub HashMap<String, Json>);

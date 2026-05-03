@@ -1,7 +1,4 @@
-use amoeba::{
-    Error, FromJson, FromRequest, IntoError, IntoJson, Json, JsonError, JsonResponse, Request,
-    Route, Server,
-};
+use amoeba::{Error, FromJson, IntoJson, Json, JsonError, JsonResponse, Request, Route, Server};
 
 struct Person {
     name: String,
@@ -43,9 +40,9 @@ fn get_person(_: &mut (), _: Request) -> Result<JsonResponse<Person>, Error> {
     .status_code(200))
 }
 
-fn post_person(_: &mut (), req: Request) -> Result<JsonResponse<Person>, Error> {
+fn post_person(_: &mut (), req: Request) -> Result<JsonResponse<Person>, JsonError> {
     let body = Json::from_request(req)?;
-    let mut person = Person::from_json(body).map_err(|e| Error::new(422, e.0))?;
+    let mut person = Person::from_json(body)?;
     person.name = "New John".into();
     Ok(JsonResponse::new(person).status_code(200))
 }
