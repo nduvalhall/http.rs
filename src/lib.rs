@@ -7,6 +7,8 @@ mod response;
 mod route;
 mod server;
 
+pub mod http;
+
 pub use crate::{
     html::Html,
     http_error::HttpError,
