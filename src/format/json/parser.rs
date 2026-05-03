@@ -1,28 +1,28 @@
 use std::iter::Peekable;
 use std::slice::Iter;
 
-use crate::JsonValue;
-use crate::json::lexer::{Token, tokenize};
+use crate::format::json::Json;
+use crate::format::json::lexer::{Token, tokenize};
 
 type Tokens<'a> = Peekable<Iter<'a, Token>>;
 
-pub fn parse(content: &str) -> Result<JsonValue, String> {
+pub fn parse(content: &str) -> Result<Json, String> {
     let tokens = tokenize(content);
     let mut iter = tokens.iter().peekable();
     parse_value(&mut iter)
 }
 
-fn parse_value(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
+fn parse_value(tokens: &mut Tokens<'_>) -> Result<Json, String> {
     let Some(token) = tokens.next() else {
         return Err("unexpected end of input".into());
     };
 
     match token {
-        Token::Null => Ok(JsonValue::JsonNull),
-        Token::True => Ok(JsonValue::JsonBool(true)),
-        Token::False => Ok(JsonValue::JsonBool(false)),
+        Token::Null => Ok(Json::Null),
+        Token::True => Ok(Json::Bool(true)),
+        Token::False => Ok(Json::Bool(false)),
         Token::Number(s) => parse_number(s),
-        Token::String(s) => Ok(JsonValue::JsonString(s.clone())),
+        Token::String(s) => Ok(Json::String(s.clone())),
         Token::LBrace => parse_object(tokens),
         Token::LBracket => parse_array(tokens),
         Token::Eof => Err("unexpected end of input".into()),
@@ -30,27 +30,15 @@ fn parse_value(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
     }
 }
 
-fn parse_number(s: &str) -> Result<JsonValue, String> {
-    if s.contains('.') || s.contains('e') || s.contains('E') {
-        let Ok(f) = s.parse::<f64>() else {
-            return Err(format!("invalid float: {s}"));
-        };
-        Ok(JsonValue::JsonFloat(f))
-    } else if s.starts_with('-') {
-        let Ok(i) = s.parse::<i64>() else {
-            return Err(format!("invalid integer: {s}"));
-        };
-        Ok(JsonValue::JsonInt(i))
-    } else {
-        let Ok(u) = s.parse::<u64>() else {
-            return Err(format!("invalid integer: {s}"));
-        };
-        Ok(JsonValue::JsonUint(u))
-    }
+fn parse_number(s: &str) -> Result<Json, String> {
+    let Ok(f) = s.parse::<f64>() else {
+        return Err(format!("invalid number: {s}"));
+    };
+    Ok(Json::Number(f))
 }
 
-fn parse_object(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
-    let mut fields: Vec<(String, JsonValue)> = Vec::new();
+fn parse_object(tokens: &mut Tokens<'_>) -> Result<Json, String> {
+    let mut fields: Vec<(String, Json)> = Vec::new();
 
     loop {
         match tokens.peek() {
@@ -83,10 +71,10 @@ fn parse_object(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
         }
     }
 
-    Ok(JsonValue::JsonObject(fields))
+    Ok(Json::object(fields))
 }
 
-fn parse_array(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
+fn parse_array(tokens: &mut Tokens<'_>) -> Result<Json, String> {
     let mut items = Vec::new();
 
     loop {
@@ -111,35 +99,33 @@ fn parse_array(tokens: &mut Tokens<'_>) -> Result<JsonValue, String> {
         }
     }
 
-    Ok(JsonValue::JsonList(items))
+    Ok(Json::Array(items))
 }
 
 #[test]
 fn test_parse_primitives() {
-    assert!(matches!(parse("null"), Ok(JsonValue::JsonNull)));
-    assert!(matches!(parse("true"), Ok(JsonValue::JsonBool(true))));
-    assert!(matches!(parse("false"), Ok(JsonValue::JsonBool(false))));
-    assert!(matches!(parse("42"), Ok(JsonValue::JsonUint(42))));
-    assert!(matches!(parse("-7"), Ok(JsonValue::JsonInt(-7))));
-    assert!(matches!(parse("3.14"), Ok(JsonValue::JsonFloat(_))));
-    assert!(matches!(parse(r#""hello""#), Ok(JsonValue::JsonString(_))));
+    assert!(matches!(parse("null"), Ok(Json::Null)));
+    assert!(matches!(parse("true"), Ok(Json::Bool(true))));
+    assert!(matches!(parse("false"), Ok(Json::Bool(false))));
+    assert!(matches!(parse("42"), Ok(Json::Number(n)) if n == 42.0));
+    assert!(matches!(parse("-7"), Ok(Json::Number(n)) if n == -7.0));
+    assert!(matches!(parse("3.14"), Ok(Json::Number(_))));
+    assert!(matches!(parse(r#""hello""#), Ok(Json::String(_))));
 }
 
 #[test]
 fn test_parse_object() {
-    let Ok(JsonValue::JsonObject(fields)) = parse(r#"{"name": "Alice", "age": 30}"#) else {
+    let Ok(Json::Object(obj)) = parse(r#"{"name": "Alice", "age": 30}"#) else {
         panic!("expected object");
     };
-    assert_eq!(fields.len(), 2);
-    assert_eq!(fields[0].0, "name");
-    assert!(matches!(&fields[0].1, JsonValue::JsonString(s) if s == "Alice"));
-    assert_eq!(fields[1].0, "age");
-    assert!(matches!(fields[1].1, JsonValue::JsonUint(30)));
+    assert_eq!(obj.0.len(), 2);
+    assert!(matches!(obj.field("name"), Some(Json::String(s)) if s == "Alice"));
+    assert!(matches!(obj.field("age"), Some(Json::Number(n)) if *n == 30.0));
 }
 
 #[test]
 fn test_parse_array() {
-    let Ok(JsonValue::JsonList(items)) = parse("[1, 2, 3]") else {
+    let Ok(Json::Array(items)) = parse("[1, 2, 3]") else {
         panic!("expected array");
     };
     assert_eq!(items.len(), 3);
@@ -148,11 +134,10 @@ fn test_parse_array() {
 #[test]
 fn test_parse_nested() {
     let json = r#"{"users": [{"id": 1, "active": true}, {"id": 2, "active": false}]}"#;
-    let Ok(JsonValue::JsonObject(fields)) = parse(json) else {
+    let Ok(Json::Object(obj)) = parse(json) else {
         panic!("expected object");
     };
-    assert_eq!(fields[0].0, "users");
-    let JsonValue::JsonList(users) = &fields[0].1 else {
+    let Some(Json::Array(users)) = obj.field("users") else {
         panic!("expected array");
     };
     assert_eq!(users.len(), 2);
@@ -160,6 +145,6 @@ fn test_parse_nested() {
 
 #[test]
 fn test_parse_empty_structures() {
-    assert!(matches!(parse("{}"), Ok(JsonValue::JsonObject(v)) if v.is_empty()));
-    assert!(matches!(parse("[]"), Ok(JsonValue::JsonList(v)) if v.is_empty()));
+    assert!(matches!(parse("{}"), Ok(Json::Object(o)) if o.0.is_empty()));
+    assert!(matches!(parse("[]"), Ok(Json::Array(v)) if v.is_empty()));
 }

@@ -1,21 +1,10 @@
-mod html;
-mod http_error;
-mod json;
-mod middleware;
-mod request;
-mod response;
-mod route;
-mod server;
+mod format;
+mod http;
 
-pub mod http;
-
-pub use crate::{
-    html::Html,
-    http_error::HttpError,
-    json::{FromJson, IntoJson, Json, JsonValue},
-    middleware::Middleware,
-    request::{FromBytes, FromRequest, Request},
-    response::{ContentType, IntoBytes, IntoResponse, Response},
-    route::Route,
-    server::Server,
-};
+pub use format::html::HtmlResponse;
+pub use format::json::{FromJson, IntoJson, Json, JsonResponse};
+pub use http::error::{Error, IntoError};
+pub use http::middleware::Middleware;
+pub use http::request::{FromRequest, IntoRequest, Request};
+pub use http::response::{ContentType, IntoBytes, IntoResponse, Response};
+pub use http::server::{Route, Server};

@@ -1,13 +1,14 @@
-use amoeba::{Html, HttpError, IntoJson, Json, JsonValue, Request, Response, Route, Server};
+use amoeba::{Error, HtmlResponse, IntoJson, Json, JsonResponse, Request, Response, Route, Server};
 
 struct Context {
     counter: i32,
 }
 
-fn index(_: &mut Context, _: Request) -> Result<Response, HttpError> {
-    Ok(Response::ok(Html::from_file(
-        "examples/counter/index.html",
-    )?))
+fn index(_: &mut Context, _: Request) -> Result<HtmlResponse, Error> {
+    match HtmlResponse::from_file("examples/counter/index.html") {
+        Ok(r) => Ok(r),
+        Err(()) => Err(Error::new(500, "file not found")),
+    }
 }
 
 struct Count {
@@ -15,27 +16,27 @@ struct Count {
 }
 
 impl IntoJson for Count {
-    fn into_json(self) -> JsonValue {
-        JsonValue::JsonObject(vec![("count".into(), JsonValue::JsonInt(self.count.into()))])
+    fn into_json(&self) -> Json {
+        Json::object(vec![("count", Json::number(self.count))])
     }
 }
 
-fn get_count(context: &mut Context, _: Request) -> Result<Response, HttpError> {
-    Ok(Response::ok(Json(Count {
+fn get_count(context: &mut Context, _: Request) -> Result<JsonResponse<Count>, Error> {
+    Ok(JsonResponse::new(Count {
         count: context.counter,
-    })))
+    }))
 }
 
-fn increment(context: &mut Context, _: Request) -> Result<Response, HttpError> {
+fn increment(context: &mut Context, _: Request) -> Result<Response, Error> {
     context.counter += 1;
     println!("Counter: {}", context.counter);
-    Ok(Response::no_content())
+    Ok(Response::new().status_code(204))
 }
 
-fn decrement(context: &mut Context, _: Request) -> Result<Response, HttpError> {
+fn decrement(context: &mut Context, _: Request) -> Result<Response, Error> {
     context.counter -= 1;
     println!("Counter: {}", context.counter);
-    Ok(Response::no_content())
+    Ok(Response::new().status_code(204))
 }
 
 fn main() {

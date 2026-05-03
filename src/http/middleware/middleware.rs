@@ -1,9 +1,9 @@
 use crate::http::{
     error::{Error, IntoError},
-    request::{FromRequest, IntoRequest, Request},
+    request::{IntoRequest, Request},
 };
 
-type Fp<C, A, B, E> = fn(&mut C, A) -> Result<B, E>;
+type Fp<C, E> = fn(&mut C, Request) -> Result<Request, E>;
 type Handler<C> = Box<dyn Fn(&mut C, Request) -> Result<Request, Error>>;
 
 pub struct Middleware<C> {
@@ -12,25 +12,18 @@ pub struct Middleware<C> {
 }
 
 impl<C: 'static> Middleware<C> {
-    fn wrap<A, B, E>(f: Fp<C, A, B, E>) -> Handler<C>
+    fn wrap<E>(f: Fp<C, E>) -> Handler<C>
     where
-        A: FromRequest + 'static,
-        B: IntoRequest + 'static,
         E: IntoError + 'static,
     {
-        Box::new(move |context, request| {
-            let a = A::from_request(request)?;
-            match f(context, a) {
-                Ok(r) => Ok(r.into_request()),
-                Err(e) => Err(e.into_error()),
-            }
+        Box::new(move |context, request| match f(context, request) {
+            Ok(r) => Ok(r.into_request()),
+            Err(e) => Err(e.into_error()),
         })
     }
 
-    pub fn new<A, B, E>(path: impl Into<String>, f: Fp<C, A, B, E>) -> Self
+    pub fn new<E>(path: impl Into<String>, f: Fp<C, E>) -> Self
     where
-        A: FromRequest + 'static,
-        B: IntoRequest + 'static,
         E: IntoError + 'static,
     {
         Self {

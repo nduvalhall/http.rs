@@ -3,7 +3,16 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{HttpError, IntoResponse, Middleware, Request, Response, Route};
+use crate::{
+    IntoError,
+    http::{
+        error::Error,
+        middleware::Middleware,
+        request::Request,
+        response::{IntoResponse, Response},
+        server::route::Route,
+    },
+};
 
 pub struct Server<C> {
     addr: String,
@@ -12,7 +21,7 @@ pub struct Server<C> {
     routes: Vec<Route<C>>,
 }
 
-impl<C> Server<C> {
+impl<C: 'static> Server<C> {
     pub fn new(addr: &str, ctx: C) -> Self {
         Self {
             addr: addr.into(),
@@ -37,7 +46,7 @@ impl<C> Server<C> {
         }
     }
 
-    fn dispatch(&mut self, mut req: Request) -> Result<Response, HttpError> {
+    fn dispatch(&mut self, mut req: Request) -> Result<Response, Error> {
         for middleware in self.middlewares.iter() {
             let path = &middleware.path;
             if path == "*" || path == &req.path {
@@ -49,7 +58,7 @@ impl<C> Server<C> {
             self.routes.iter().filter(|r| r.path == req.path).collect();
 
         if path_routes.is_empty() {
-            return Err(HttpError::new(
+            return Err(Error::new(
                 404,
                 &format!("No endpoint found for {}", &req.path),
             ));
@@ -57,7 +66,7 @@ impl<C> Server<C> {
 
         match path_routes.iter().find(|&r| *r.method == req.method) {
             Some(&route) => Ok(route.call(&mut self.ctx, req)?),
-            None => Err(HttpError::new(
+            None => Err(Error::new(
                 405,
                 &format!(
                     "No endpoint found for {} with method {}",
@@ -67,15 +76,10 @@ impl<C> Server<C> {
         }
     }
 
-    fn send_error(&self, status_code: u16, stream: &mut impl Write) {
-        stream
-            .write_all(
-                &HttpError::new(status_code, "Failed to parse request")
-                    .into_response()
-                    .into_bytes()
-                    .unwrap_or_else(|_| panic!("Failed to send error")),
-            )
-            .unwrap_or_else(|_| panic!("Failed to write error to stream"));
+    fn send_error(&self, stream: &mut impl Write) {
+        if let Ok(bytes) = Response::new().status_code(500).into_bytes() {
+            stream.write_all(&bytes).ok();
+        }
     }
 
     fn handle_connection(&mut self, stream: TcpStream) {
@@ -87,33 +91,40 @@ impl<C> Server<C> {
         let request = match request {
             Ok(r) => r,
             Err(e) => {
-                let Ok(b) = e.into_response().into_bytes() else {
-                    self.send_error(500, &mut stream);
-                    return;
-                };
-                stream.write_all(&b).ok();
+                eprintln!("Failed to read request: {}", e);
+                self.send_error(&mut stream);
                 return;
             }
         };
 
-        let response = self.dispatch(request).unwrap_or_else(|e| e.into_response());
-
-        let Ok(bytes) = response.into_bytes() else {
-            self.send_error(422, &mut stream);
-            return;
+        let response = match self.dispatch(request) {
+            Ok(r) => r,
+            Err(e) => match e.into_response() {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("Failed to build error response: {}", e.get_detail());
+                    self.send_error(&mut stream);
+                    return;
+                }
+            },
         };
 
-        stream.write_all(&bytes).unwrap_or_else(|_| {
-            eprintln!("Failed to write response");
-            return;
-        });
-
-        stream
-            .shutdown(std::net::Shutdown::Both)
-            .unwrap_or_else(|_| {
-                eprintln!("Failed to shut down stream");
+        let bytes = match response.into_bytes() {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("Failed to serialize response: {}", e);
+                self.send_error(&mut stream);
                 return;
-            });
+            }
+        };
+
+        if let Err(e) = stream.write_all(&bytes) {
+            eprintln!("Failed to write response: {}", e);
+        }
+
+        if let Err(e) = stream.shutdown(std::net::Shutdown::Both) {
+            eprintln!("Failed to shut down stream: {}", e);
+        }
     }
 
     pub fn run(mut self) {
