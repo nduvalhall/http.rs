@@ -27,12 +27,17 @@ impl fmt::Display for Error {
 
 pub trait IntoError {
     fn into_error(self) -> Error;
+    fn get_status_code(&self) -> u16;
+
     fn get_detail(&self) -> &str;
 }
 
 impl IntoError for Error {
     fn into_error(self) -> Error {
         self
+    }
+    fn get_status_code(&self) -> u16 {
+        self.status_code
     }
     fn get_detail(&self) -> &str {
         &self.detail

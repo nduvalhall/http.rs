@@ -1,5 +1,14 @@
 use std::collections::HashMap;
 
+use crate::{
+    IntoError,
+    format::json::parser,
+    http::{
+        error::Error,
+        request::{FromRequest, Request},
+    },
+};
+
 #[derive(Debug)]
 pub struct JsonObject(pub HashMap<String, Json>);
 
@@ -250,6 +259,24 @@ impl FromJson for u8 {
     }
 }
 
+impl FromJson for u32 {
+    fn from_json(json: Json) -> Result<Self, JsonError> {
+        json.as_number()
+    }
+}
+
+impl FromJson for u16 {
+    fn from_json(json: Json) -> Result<Self, JsonError> {
+        json.as_number()
+    }
+}
+
+impl FromJson for u64 {
+    fn from_json(json: Json) -> Result<Self, JsonError> {
+        json.as_number()
+    }
+}
+
 impl FromJson for bool {
     fn from_json(json: Json) -> Result<Self, JsonError> {
         json.as_bool()
@@ -262,5 +289,43 @@ impl<T: FromJson> FromJson for Vec<T> {
             Json::Array(items) => items.into_iter().map(T::from_json).collect(),
             _ => Err(JsonError("expected array".into())),
         }
+    }
+}
+
+impl Json {
+    pub fn from_request(req: Request) -> Result<Self, JsonError> {
+        let headers = Json::Object(JsonObject(
+            req.headers
+                .into_iter()
+                .map(|(k, v)| (k, Json::String(v)))
+                .collect(),
+        ));
+
+        let body = match req.body {
+            Some(bytes) => match String::from_utf8(bytes) {
+                Ok(s) => parser::parse(&s).map_err(|s| JsonError(s))?,
+                Err(_) => return Err(JsonError("utf8 error".into())),
+            },
+            None => Json::Null,
+        };
+
+        Ok(Json::object(vec![
+            ("method", Json::String(req.method)),
+            ("path", Json::String(req.path)),
+            ("headers", headers),
+            ("body", body),
+        ]))
+    }
+}
+
+impl IntoError for JsonError {
+    fn get_detail(&self) -> &str {
+        &self.0
+    }
+    fn get_status_code(&self) -> u16 {
+        500
+    }
+    fn into_error(self) -> Error {
+        Error::new(500, &self.0)
     }
 }
