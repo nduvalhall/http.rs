@@ -4,7 +4,7 @@ mod request;
 mod response;
 mod route;
 
-use crate::{
+pub use crate::{
     http_error::HttpError, middleware::Middleware, request::Request, response::Response,
     route::Route,
 };
