@@ -1,3 +1,8 @@
+//! A lightweight, single-threaded HTTP API framework for Rust.
+//!
+//! Attach typed handlers to routes and carry application state through a generic context `C`.
+//! Import all public types at once with [`prelude`].
+
 mod body;
 mod http_error;
 mod middleware;
@@ -6,11 +11,3 @@ mod request;
 mod response;
 mod route;
 mod server;
-
-pub use body::Body;
-pub use http_error::HttpError;
-pub use middleware::Middleware;
-pub use request::Request;
-pub use response::{ContentType, Response};
-pub use route::Route;
-pub use server::Server;

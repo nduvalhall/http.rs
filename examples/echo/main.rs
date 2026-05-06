@@ -11,13 +11,16 @@ fn validate(_: &mut (), req: Request) -> Result<Request, HttpError> {
 }
 
 fn echo(_: &mut (), req: Request) -> Result<Response, HttpError> {
-    let body = req.body.unwrap();
+    let body = req
+        .body
+        .ok_or_else(|| HttpError::new("No body").status(400))?;
+
     Ok(Response::new()
         .body(body.content_type, body.data)
         .status(200))
 }
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     Server::new("localhost:8080", ())
         .middleware(Middleware::new("POST", "/echo", validate))
         .route(Route::new("POST", "/echo", echo))

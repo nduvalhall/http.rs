@@ -12,25 +12,32 @@ A lightweight, single-threaded HTTP API framework for Rust. Attach handlers to r
 ## Quick start
 
 ```rust
-use amoeba::{HttpError, Request, Response, Route, Server};
+use amoeba::prelude::*;
 
-struct Ctx {
-    count: i32,
+struct Counter(i32);
+
+fn increment(counter: &mut Counter, _: Request) -> Result<Response, HttpError> {
+    counter.0 += 1;
+    Ok(Response::new())
 }
 
-fn increment(ctx: &mut Ctx, _: Request) -> Result<Response, HttpError> {
-    ctx.count += 1;
-    Ok(Response::no_content())
+fn decrement(counter: &mut Counter, _: Request) -> Result<Response, HttpError> {
+    counter.0 -= 1;
+    Ok(Response::new())
 }
 
-fn get_count(ctx: &mut Ctx, _: Request) -> Result<Response, HttpError> {
-    Ok(Response::ok(format!("{{\"count\":{}}}", ctx.count)))
+fn get_count(counter: &mut Counter, _: Request) -> Result<Response, HttpError> {
+    let count = counter.0.to_string().into_bytes();
+    Ok(Response::new()
+        .body(ContentType::PlainText, count)
+        .status(200))
 }
 
 fn main() {
-    Server::new("127.0.0.1:3000", Ctx { count: 0 })
-        .route(Route::new("POST", "/increment", increment))
+    Server::new("localhost:8080", Counter(0))
         .route(Route::new("GET", "/count", get_count))
+        .route(Route::new("POST", "/increment", increment))
+        .route(Route::new("POST", "/decrement", decrement))
         .run();
 }
 ```
@@ -54,135 +61,77 @@ pub struct Request {
     pub method: String,
     pub path: String,
     pub headers: HashMap<String, String>,
-    pub body: Option<Vec<u8>>,
+    pub body: Option<Body>,
 }
 ```
 
-Header keys are normalized to lowercase. The body is populated from the `Content-Length` header; if absent, `body` is `None`.
+Header keys are normalized to lowercase. The body is populated only when a `Content-Length` header is present; if absent, `body` is `None`. Access body bytes via `body.data` and its content type via `body.content_type`.
 
 ## Response
 
-Shorthand constructors:
-
-```rust
-Response::ok(body)                    // 200
-Response::created(body)               // 201
-Response::no_content()                // 204
-Response::bad_request(body)           // 400
-Response::unauthorized()              // 401
-Response::forbidden(body)             // 403
-Response::not_found(body)             // 404
-Response::internal_server_error(body) // 500
-```
-
-Builder-style for custom status codes or headers:
+`Response::new()` defaults to status `204 No Content`. Use builder methods to set a status and optional body:
 
 ```rust
 Response::new()
-    .status_code(202)
+    .body(ContentType::PlainText, b"hello".to_vec())
+    .status(200)
+
+Response::new()
+    .status(202)
     .header("X-Request-Id", "abc123")
-    .body("accepted")
+    .body(ContentType::PlainText, b"accepted".to_vec())
 ```
 
-The `body` argument can be a `String`, `&str`, `Html(...)`, or `Json(...)`.
-
-## JSON
-
-Implement `IntoJson` to serialize a type as a response body:
-
-```rust
-use amoeba::{FromBytes, FromJson, HttpError, IntoJson, Json, JsonValue, Request, Response, Route};
-
-struct Point { x: f64, y: f64 }
-
-impl IntoJson for Point {
-    fn into_json(self) -> JsonValue {
-        JsonValue::JsonObject(vec![
-            ("x".into(), JsonValue::JsonFloat(self.x)),
-            ("y".into(), JsonValue::JsonFloat(self.y)),
-        ])
-    }
-}
-
-impl FromJson for Point {
-    fn from_json(json: JsonValue) -> Self {
-        let JsonValue::JsonObject(mut fields) = json else { panic!("expected object") };
-        let x = fields.remove(fields.iter().position(|(k, _)| k == "x").unwrap()).1;
-        let y = fields.remove(fields.iter().position(|(k, _)| k == "y").unwrap()).1;
-        let (JsonValue::JsonFloat(x), JsonValue::JsonFloat(y)) = (x, y) else { panic!("expected floats") };
-        Point { x, y }
-    }
-}
-
-fn get_point(_: &mut (), _: Request) -> Result<Response, HttpError> {
-    Ok(Response::ok(Json(Point { x: 1.0, y: 2.0 })))
-}
-
-fn post_point(_: &mut (), req: Request) -> Result<Response, HttpError> {
-    let body = req.body.ok_or_else(|| HttpError::new(400, "missing body"))?;
-    let Json(point) = Json::<Point>::from_bytes(body)?;
-    Ok(Response::ok(Json(point)))
-}
-```
-
-`JsonValue` variants: `JsonNull`, `JsonBool(bool)`, `JsonChar(char)`, `JsonUint(u64)`, `JsonInt(i64)`, `JsonFloat(f64)`, `JsonString(String)`, `JsonList(Vec<JsonValue>)`, `JsonObject(Vec<(String, JsonValue)>)`.
-
-## HTML
-
-```rust
-use amoeba::Html;
-
-fn index(_: &mut (), _: Request) -> Result<Response, HttpError> {
-    Ok(Response::ok(Html(include_str!("index.html").to_string())))
-}
-```
+Responses with a body automatically include `Content-Type` and `Content-Length` headers.
 
 ## Errors
 
-`HttpError::new(status_code, detail)` is the standard error type. Any handler can return it; the server automatically converts it to a JSON response:
+`HttpError::new(message)` is the standard error type. It defaults to status `500`; use `.status(code)` to override:
 
-```json
-{ "detail": "error message here" }
+```rust
+HttpError::new("something went wrong")       // 500
+HttpError::new("not found").status(404)      // 404
+HttpError::new("invalid input").status(400)  // 400
 ```
+
+The server automatically converts an `HttpError` returned from a handler into a plain-text HTTP response with the given status.
 
 ## Middleware
 
 Middleware intercepts a request before it reaches the handler. It receives `&mut C` and `Request` and either returns a (possibly modified) `Request` to continue the chain, or an `Err(HttpError)` to short-circuit.
 
 ```rust
-use amoeba::{HttpError, Middleware, Request};
-
-fn auth(_: &mut Ctx, req: Request) -> Result<Request, HttpError> {
-    match req.headers.get("x-api-key") {
-        Some(k) if k == "secret" => Ok(req),
-        _ => Err(HttpError::new(401, "Invalid API key")),
+fn validate(_: &mut (), req: Request) -> Result<Request, HttpError> {
+    match &req.body {
+        Some(b) => match b.content_type {
+            ContentType::PlainText => Ok(req),
+            _ => Err(HttpError::new("Only PlainText content supported")),
+        },
+        None => Err(HttpError::new("No body received")),
     }
 }
 ```
 
-Register with `"*"` to apply globally or an exact path to apply only to that route:
+Register with a specific method and path, or `"*"` for either dimension to match all:
 
 ```rust
-Server::new("localhost:8080", Ctx())
-    .middleware(Middleware::new("*", auth))
-    .route(Route::new("GET", "/", index))
-    .run();
+// Applies only to POST /echo
+.middleware(Middleware::new("POST", "/echo", validate))
+
+// Applies to every request
+.middleware(Middleware::new("*", "*", auth))
 ```
 
 Middleware runs in registration order.
 
 ## Examples
 
-- `examples/simple/` — minimal single-route server
-- `examples/counter/` — stateful counter with an HTML UI and JSON responses
-- `examples/json/` — nested struct serialization via `IntoJson`
-- `examples/middleware/` — global API-key auth middleware
-- `examples/poll/` — multi-option poll with live vote totals and an HTML UI
+- `examples/counter/` — stateful counter (increment, decrement, read)
+- `examples/echo/` — middleware-validated echo endpoint
+- `examples/users/` — request body parsing and mutable collection state
 
 ```
-cargo run --example simple
 cargo run --example counter
-cargo run --example json
-cargo run --example middleware
-cargo run --example poll
+cargo run --example echo
+cargo run --example users
 ```

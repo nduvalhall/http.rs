@@ -63,10 +63,10 @@ fn remove_user(users: &mut Users, req: Request) -> Result<Response, HttpError> {
     Ok(Response::new())
 }
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     Server::new("localhost:8080", Users(Vec::new()))
         .route(Route::new("GET", "/users", get_users))
         .route(Route::new("POST", "/users", add_user))
         .route(Route::new("DELETE", "/users", remove_user))
-        .run();
+        .run()
 }

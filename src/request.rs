@@ -1,11 +1,16 @@
 use std::{collections::HashMap, io::Read};
 
-use crate::{Body, ContentType};
+use crate::{body::Body, response::ContentType};
 
+/// An incoming HTTP request.
 pub struct Request {
+    /// HTTP method (e.g. `"GET"`, `"POST"`).
     pub method: String,
+    /// Request path (e.g. `"/users"`).
     pub path: String,
+    /// Request headers; keys are normalized to lowercase.
     pub headers: HashMap<String, String>,
+    /// Request body, populated only when a `Content-Length` header is present.
     pub body: Option<Body>,
 }
 
@@ -26,6 +31,10 @@ impl Request {
         }
     }
 
+    /// Parses a request from a reader.
+    ///
+    /// Reads up to 16 KB for headers. Returns an error if the HTTP framing is invalid,
+    /// headers exceed the buffer, or the declared body cannot be read to completion.
     pub fn from_reader<R: Read>(reader: &mut R) -> Result<Self, &'static str> {
         let mut buf = vec![0u8; 16_384];
 
@@ -89,16 +98,19 @@ impl Request {
         };
 
         let buf_body_start = header_end + 4;
-        let buf_body_len = n - buf_body_start;
 
         let mut body = Vec::with_capacity(content_length);
         body.extend_from_slice(&buf[buf_body_start..n]);
 
         if body.len() < content_length {
-            body.resize(content_length, 0);
-            let Ok(()) = reader.read_exact(&mut body[buf_body_len..]) else {
+            let remaining = (content_length - body.len()) as u64;
+            reader
+                .take(remaining)
+                .read_to_end(&mut body)
+                .map_err(|_| "Failed to read body from reader")?;
+            if body.len() < content_length {
                 return Err("Failed to read body from reader");
-            };
+            }
         }
 
         Ok(Self::new(method, path).body(content_type, body))

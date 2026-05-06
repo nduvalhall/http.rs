@@ -19,7 +19,7 @@ fn get_count(counter: &mut Counter, _: Request) -> Result<Response, HttpError> {
         .status(200))
 }
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     Server::new("localhost:8080", Counter(0))
         .route(Route::new("GET", "/count", get_count))
         .route(Route::new("POST", "/increment", increment))

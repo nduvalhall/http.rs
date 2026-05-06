@@ -3,8 +3,18 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{ContentType, HttpError, Middleware, Request, Response, Route};
+use crate::{
+    http_error::HttpError,
+    middleware::Middleware,
+    request::Request,
+    response::{ContentType, Response},
+    route::Route,
+};
 
+/// The HTTP server. Generic over application context type `C`.
+///
+/// Requests are handled one at a time on a single thread. A slow handler blocks
+/// all subsequent requests; hand CPU-intensive or I/O-bound work off to a separate thread.
 pub struct Server<C> {
     addr: String,
     ctx: C,
@@ -13,6 +23,7 @@ pub struct Server<C> {
 }
 
 impl<C> Server<C> {
+    /// Creates a new server that will listen on `addr` with the given context.
     pub fn new(addr: &str, ctx: C) -> Self {
         Self {
             addr: addr.into(),
@@ -22,12 +33,14 @@ impl<C> Server<C> {
         }
     }
 
+    /// Registers a route. Routes are matched in registration order.
     pub fn route(self, route: Route<C>) -> Self {
         let mut routes = self.routes;
         routes.push(route);
         Self { routes, ..self }
     }
 
+    /// Registers middleware. Middleware runs in registration order before the route handler.
     pub fn middleware(self, middleware: Middleware<C>) -> Self {
         let mut middlewares = self.middlewares;
         middlewares.push(middleware);
@@ -117,9 +130,12 @@ impl<C> Server<C> {
         }
     }
 
-    pub fn run(mut self) {
-        let listener = TcpListener::bind(&self.addr)
-            .unwrap_or_else(|e| panic!("Failed to bind to {}: {}", &self.addr, e));
+    /// Starts listening and blocks forever, handling one request at a time.
+    ///
+    /// # Panics
+    /// Panics if the address cannot be bound.
+    pub fn run(mut self) -> Result<(), std::io::Error> {
+        let listener = TcpListener::bind(&self.addr)?;
 
         println!("Listening on {}", self.addr);
 
@@ -129,5 +145,7 @@ impl<C> Server<C> {
                 Err(e) => eprintln!("Connection error: {}", e),
             }
         }
+
+        Ok(())
     }
 }
