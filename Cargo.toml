@@ -1,6 +1,11 @@
 [package]
-name = "http"
-version = "0.1.0"
+name = "amoeba"
+version = "1.0.1"
 edition = "2024"
+description = "A lightweight HTTP API library for Rust"
+license = "MIT"
+repository = "https://github.com/nduvalhall/amoeba"
+homepage = "https://github.com/nduvalhall/amoeba"
+documentation = "https://docs.rs/amoeba"
 
 [dependencies]

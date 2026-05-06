@@ -1,0 +1,3 @@
+- [ ] Add path parameter extractor
+- [ ] Add query parameter extractor
+- [ ] Add matching logic for middleware (currently only supports `*` or exact path)
