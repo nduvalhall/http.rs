@@ -1,19 +1,28 @@
 use std::{collections::HashMap, io::Read};
 
+use crate::{Body, ContentType};
+
 pub struct Request {
     pub method: String,
     pub path: String,
     pub headers: HashMap<String, String>,
-    pub body: Option<Vec<u8>>,
+    pub body: Option<Body>,
 }
 
 impl Request {
-    pub fn new(method: impl Into<String>, path: impl Into<String>, body: Option<Vec<u8>>) -> Self {
+    fn new(method: impl Into<String>, path: impl Into<String>) -> Self {
         Self {
             method: method.into(),
             path: path.into(),
             headers: HashMap::new(),
-            body,
+            body: None,
+        }
+    }
+
+    fn body(self, content_type: ContentType, body: Vec<u8>) -> Self {
+        Self {
+            body: Some(Body::new(content_type, body)),
+            ..self
         }
     }
 
@@ -64,11 +73,19 @@ impl Request {
         }
 
         let Some(content_length) = headers.get("content-length") else {
-            return Ok(Self::new(method, path, None));
+            return Ok(Self::new(method, path));
         };
 
         let Ok(content_length) = content_length.parse::<usize>() else {
             return Err("Content-Length must be an integer");
+        };
+
+        let content_type = match headers.get("content-type") {
+            Some(s) => match ContentType::from_str(s) {
+                Some(c) => c,
+                None => return Err("Unknown Content-Type"),
+            },
+            None => ContentType::PlainText,
         };
 
         let buf_body_start = header_end + 4;
@@ -84,6 +101,6 @@ impl Request {
             };
         }
 
-        Ok(Self::new(method, path, Some(body)))
+        Ok(Self::new(method, path).body(content_type, body))
     }
 }

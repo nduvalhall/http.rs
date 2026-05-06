@@ -3,16 +3,7 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{
-    IntoError,
-    http::{
-        error::Error,
-        middleware::Middleware,
-        request::Request,
-        response::{IntoResponse, Response},
-        server::route::Route,
-    },
-};
+use crate::{ContentType, HttpError, Middleware, Request, Response, Route};
 
 pub struct Server<C> {
     addr: String,
@@ -21,7 +12,7 @@ pub struct Server<C> {
     routes: Vec<Route<C>>,
 }
 
-impl<C: 'static> Server<C> {
+impl<C> Server<C> {
     pub fn new(addr: &str, ctx: C) -> Self {
         Self {
             addr: addr.into(),
@@ -46,49 +37,53 @@ impl<C: 'static> Server<C> {
         }
     }
 
-    fn dispatch(&mut self, mut req: Request) -> Result<Response, Error> {
-        for middleware in self.middlewares.iter() {
-            let path = &middleware.path;
-            if path == "*" || path == &req.path {
-                req = middleware.call(&mut self.ctx, req)?
-            }
+    fn dispatch(&mut self, mut req: Request) -> Result<Response, HttpError> {
+        let middleware_routes: Vec<&Middleware<C>> = self
+            .middlewares
+            .iter()
+            .filter(|r| r.path == req.path || r.path == "*")
+            .collect();
+
+        let middleware_routes: Vec<&Middleware<C>> = middleware_routes
+            .into_iter()
+            .filter(|r| r.method == req.method || r.method == "*")
+            .collect();
+
+        let mut middleware_iter = middleware_routes.into_iter();
+
+        while let Some(m) = middleware_iter.next() {
+            req = ((m.handler)(&mut self.ctx, req))?
         }
 
         let path_routes: Vec<&Route<C>> =
             self.routes.iter().filter(|r| r.path == req.path).collect();
 
         if path_routes.is_empty() {
-            return Err(Error::new(
-                404,
-                &format!("No endpoint found for {}", &req.path),
-            ));
+            return Err(HttpError::new(format!("No endpoint found for {}", req.path)).status(404));
         }
 
-        match path_routes.iter().find(|&r| *r.method == req.method) {
-            Some(&route) => Ok(route.call(&mut self.ctx, req)?),
-            None => Err(Error::new(
-                405,
-                &format!(
-                    "No endpoint found for {} with method {}",
-                    req.path, req.method
-                ),
-            )),
+        match path_routes.iter().find(|r| r.method == req.method) {
+            Some(&route) => (route.handler)(&mut self.ctx, req),
+            None => Err(HttpError::new(format!(
+                "No endpoint found for {} with method {}",
+                req.path, req.method
+            ))
+            .status(405)),
         }
     }
 
     fn send_error(&self, stream: &mut impl Write) {
-        if let Ok(bytes) = Response::new().status_code(500).into_bytes() {
+        if let Ok(bytes) = Response::new().status(500).into_bytes() {
             stream.write_all(&bytes).ok();
         }
     }
 
-    fn handle_connection(&mut self, stream: TcpStream) {
+    fn handle_connection(&mut self, mut stream: TcpStream) {
         if let Ok(addr) = stream.peer_addr() {
             println!("Connection from {}", addr);
         }
 
-        let (mut stream, request) = Request::from_stream(stream);
-        let request = match request {
+        let request = match Request::from_reader(&mut stream) {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("Failed to read request: {}", e);
@@ -99,14 +94,9 @@ impl<C: 'static> Server<C> {
 
         let response = match self.dispatch(request) {
             Ok(r) => r,
-            Err(e) => match e.into_response() {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("Failed to build error response: {}", e.get_detail());
-                    self.send_error(&mut stream);
-                    return;
-                }
-            },
+            Err(e) => Response::new()
+                .status(e.status)
+                .body(ContentType::PlainText, e.message.into_bytes()),
         };
 
         let bytes = match response.into_bytes() {

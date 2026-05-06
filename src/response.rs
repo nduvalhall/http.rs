@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use crate::Body;
+
+#[derive(Debug)]
 pub enum ContentType {
     Json,
     Xml,
@@ -34,17 +37,6 @@ impl ContentType {
             "application/octet-stream" => Some(ContentType::OctetStream),
             _ => None,
         }
-    }
-}
-
-struct Body {
-    content_type: ContentType,
-    data: Vec<u8>,
-}
-
-impl Body {
-    fn new(content_type: ContentType, data: Vec<u8>) -> Self {
-        Body { content_type, data }
     }
 }
 
@@ -93,18 +85,16 @@ impl Response {
             s.push_str(&format!("{}: {}\r\n", header, value));
         }
 
-        if let Some(body) = self.body {
-            s.push_str(&format!(
-                "Content-Type: {}\r\n",
-                body.content_type.to_string()
-            ));
-            s.push_str(&format!("Content-Length: {}\r\n", body.data.len()));
-            s.push_str("\r\n");
-            s.push_str(&String::from_utf8(body.data).map_err(|_| "Failed to parse response body")?);
-        } else {
-            s.push_str("\r\n");
-        }
-
-        Ok(s.into_bytes())
+        return match self.body {
+            Some(b) => {
+                s.push_str(&format!("Content-Type: {}\r\n", b.content_type.to_string()));
+                s.push_str(&format!("Content-Length: {}\r\n\r\n", b.data.len()));
+                let mut b_ = s.into_bytes();
+                b_.extend(b.data);
+                println!("{:?}", b_);
+                Ok(b_)
+            }
+            None => Ok(s.into_bytes()),
+        };
     }
 }
